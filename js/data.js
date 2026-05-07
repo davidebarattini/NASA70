@@ -4,6 +4,7 @@ export const DATA_URL = "https://ixd-supsi.github.io/n70api/data.json";
 export const FALLBACK_DATA_URL = new URL("../data.json", import.meta.url).toString();
 // Image filenames in the JSON are relative to the API host.
 export const IMAGE_BASE_URL = "https://ixd-supsi.github.io/n70api/immagini/";
+const LOCAL_PREVIEW_BASE_URL = new URL("../assets/Preview/", import.meta.url).toString();
 
 const MONTHS_IT = [
   "gennaio",
@@ -24,6 +25,21 @@ function resolveImageUrl(filename) {
   if (!filename) return null;
   if (/^https?:\/\//i.test(filename)) return filename;
   return new URL(filename, IMAGE_BASE_URL).toString();
+}
+
+function resolveLocalPreviewUrlFromTitle(title, variant = 1) {
+  if (!title) return null;
+  const key = slugify(title, "")
+    .replace(/-/g, "")
+    .trim();
+  if (!key) return null;
+  return new URL(`${key}_${variant}.jpg`, LOCAL_PREVIEW_BASE_URL).toString();
+}
+
+function normalizeImageFilenames(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return [value].filter(Boolean);
 }
 
 function formatDate(date) {
@@ -50,6 +66,9 @@ function normalizeProject(raw, index) {
   const tags = Array.isArray(raw.tags) ? raw.tags.filter(Boolean) : [];
   const category = findCategoryForTags(tags);
   const id = `${slugify(raw.titolo, `project-${index}`)}-${index}`;
+  const remoteImages = normalizeImageFilenames(raw.immagine).map(resolveImageUrl).filter(Boolean);
+  const localImages = [1, 2].map((v) => resolveLocalPreviewUrlFromTitle(raw.titolo, v)).filter(Boolean);
+  const imageSources = [...localImages, ...remoteImages];
 
   return {
     id,
@@ -57,7 +76,10 @@ function normalizeProject(raw, index) {
     description: String(raw.descrizione ?? "").trim(),
     author: String(raw.autore ?? "").trim(),
     url: String(raw.url ?? "#").trim(),
-    image: resolveImageUrl(raw.immagine),
+    // Prefer same-origin local preview (assets/Preview) when available,
+    // then fall back to the API image URL.
+    image: imageSources[0] ?? null,
+    imageSources,
     date: formatDate(raw.data),
     rawDate: raw.data ?? null,
     tags,

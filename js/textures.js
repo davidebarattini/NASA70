@@ -33,6 +33,20 @@ export function getTexture(url) {
   return promise;
 }
 
+export async function getFirstTexture(urls = []) {
+  const list = Array.isArray(urls) ? urls.filter(Boolean) : [urls].filter(Boolean);
+  for (const url of list) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const texture = await getTexture(url);
+      if (texture) return texture;
+    } catch {
+      // Try next URL
+    }
+  }
+  return null;
+}
+
 // Generates a flat circular thumbnail with the project author's initial.
 // Used while the real image is still loading (or as fallback on error).
 export function getPlaceholderTexture({ label = "?", color = "#3a4670" } = {}) {

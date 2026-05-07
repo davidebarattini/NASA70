@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { getPlaceholderTexture, getTexture } from "./textures.js";
+import { getFirstTexture, getPlaceholderTexture } from "./textures.js";
 
 // Re-used geometry to keep memory low when a system has many planets.
 const PLANET_GEOMETRY = new THREE.SphereGeometry(1, 48, 48);
@@ -74,8 +74,9 @@ export function createPlanet({ project, category, orbit }) {
 
   // Kick off the texture load asynchronously; if it fails, the placeholder
   // stays in place.
-  if (project.image) {
-    Promise.resolve(getTexture(project.image))
+  const sources = Array.isArray(project.imageSources) ? project.imageSources : [project.image].filter(Boolean);
+  if (sources.length > 0) {
+    Promise.resolve(getFirstTexture(sources))
       .then((texture) => {
         if (texture) {
           material.map = texture;

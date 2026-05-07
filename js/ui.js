@@ -197,9 +197,25 @@ export function createUIController({
     elements.infoDate.textContent = project.date || "";
     elements.infoDescription.textContent = project.description || "";
 
-    if (project.image) {
-      elements.infoThumb.style.backgroundImage = `url(${JSON.stringify(project.image)})`;
+    const sources = Array.isArray(project.imageSources) ? project.imageSources : [project.image].filter(Boolean);
+    if (sources.length > 0) {
       elements.infoThumb.style.display = "block";
+      const img = new Image();
+      let idx = 0;
+      const tryNext = () => {
+        if (idx >= sources.length) {
+          elements.infoThumb.style.backgroundImage = "";
+          elements.infoThumb.style.display = "none";
+          return;
+        }
+        const src = sources[idx++];
+        img.onload = () => {
+          elements.infoThumb.style.backgroundImage = `url(${JSON.stringify(src)})`;
+        };
+        img.onerror = () => tryNext();
+        img.src = src;
+      };
+      tryNext();
     } else {
       elements.infoThumb.style.backgroundImage = "";
       elements.infoThumb.style.display = "none";
