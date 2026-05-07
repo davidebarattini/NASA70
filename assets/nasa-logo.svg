@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 168" role="img" aria-label="NASA logo">
+  <title>NASA</title>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#0b3d91" />
+      <stop offset="100%" stop-color="#062764" />
+    </radialGradient>
+  </defs>
+  <circle cx="100" cy="84" r="80" fill="url(#bg)" />
+  <g fill="#ffffff" stroke="none">
+    <circle cx="58" cy="62" r="1.4" />
+    <circle cx="74" cy="46" r="1" />
+    <circle cx="92" cy="58" r="1.6" />
+    <circle cx="118" cy="44" r="1.1" />
+    <circle cx="138" cy="64" r="1.3" />
+    <circle cx="148" cy="98" r="1" />
+    <circle cx="60" cy="100" r="1" />
+    <circle cx="78" cy="116" r="1.2" />
+    <circle cx="116" cy="118" r="1.1" />
+    <circle cx="132" cy="106" r="0.9" />
+  </g>
+  <path
+    d="M28 96 C 70 78, 130 90, 172 72"
+    fill="none"
+    stroke="#fc3d21"
+    stroke-width="6"
+    stroke-linecap="round"
+  />
+  <path
+    d="M132 50 L150 124"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="3"
+    stroke-linecap="round"
+    opacity="0.85"
+  />
+  <g
+    fill="#ffffff"
+    font-family="'Helvetica Neue', Helvetica, Arial, sans-serif"
+    font-weight="700"
+    font-size="30"
+    letter-spacing="1"
+    text-anchor="middle"
+  >
+    <text x="100" y="96">NASA</text>
+  </g>
+</svg>

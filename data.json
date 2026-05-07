@@ -1,0 +1,198 @@
+[
+ {
+  "titolo" : "Test gravity",
+  "descrizione" : "Il progetto non si limita a essere un semplice gioco. Una volta superate tutte le prove, l'esperienza culmina con un viaggio visivo verso la Luna e si trasforma in un vero e proprio archivio storico. I giocatori vengono ricompensati con un'interfaccia che permette di esplorare i video originali e i filmati di repertorio della NASA per ciascuna delle strutture affrontate (dall'esperimento originale di David Scott sulla Luna, fino alle riprese reali della Centrifuga e della piscina N.B.L.).",
+  "immagine" : "thumbnail.jpg",
+  "url" : "https://riccardovosti.github.io/TESTGRAVITY/",
+  "data" : {
+   "giorno" : 21,
+   "mese" : 4,
+   "anno" : 2026
+  },
+  "autore" : "Riccardo Vosti",
+  "tags" : [
+   "kids",
+   "gravity",
+   "game"
+  ]
+ },
+ {
+  "titolo" : "Perseverance Rover",
+  "descrizione" : "Pagina interattiva progettata per la divulgazione scientifica e l'esplorazione virtuale della missione Mars 2020 e il Rover Perseverance della NASA. Il progetto è un laboratorio digitale dove l'utente smette di essere uno spettatore passivo per diventare un operatore virtuale, scoprendo ogni dettaglio della missione.",
+  "immagine" : "Perseverance_rover.jpg",
+  "url" : "https://naheleee.github.io/NaheleBelli_IXD_2026/Progetto1_PerseveranceRover/index.html",
+  "data" : {
+   "giorno" : 21,
+   "mese" : 4,
+   "anno" : 2026
+  },
+  "autore" : "Nahele Belli",
+  "tags" : [
+   "Rover",
+   "Perseverance",
+   "3D",
+   "Educational",
+   "Mars",
+   "Space",
+   "Exploration",
+   "Mission",
+   "Discovery",
+   "Robot",
+   "Aerospace",
+   "Planetary"
+  ]
+ },
+ {
+  "titolo" : "NASA SAY",
+  "descrizione" : "NASA.SAY è un archivio digitale interattivo che raccoglie e restituisce visivamente le dieci trasmissioni audio più iconiche della storia della NASA.",
+  "immagine" : "nasasay.jpg",
+  "url" : "https://claudio-ceppi.github.io/CV429.01-Interaction-Design/NASA.SAY/files/",
+  "data" : {
+   "giorno" : 21,
+   "mese" : 4,
+   "anno" : 2026
+  },
+  "autore" : "Claudio Ceppi",
+  "tags" : [
+   "sounds"
+  ]
+ },
+ {
+  "titolo" : "Other Worlds",
+  "descrizione" : "Other Worlds è una visualizzazione dati interattiva di 11 esopianeti confermati, costruita a partire dai dati pubblici del NASA Exoplanet Archive.",
+  "immagine" : "otherworlds.jpg",
+  "url" : "https://djordjaa.github.io/Other_Worlds/",
+  "data" : {
+   "giorno" : 21,
+   "mese" : 4,
+   "anno" : 2026
+  },
+  "autore" : "Djordja Krsteva",
+  "tags" : [
+   "exoplanets",
+   "NASA70",
+   "educational"
+  ]
+ },
+ {
+  "titolo" : "MoonPrint",
+  "descrizione" : "Questo archivio interattivo esplora come i media globali raccontarono lo sbarco sulla Luna dell’Apollo 11 nel luglio 1969. Attraverso una visualizzazione dinamica, il sito mette a confronto le narrazioni giornalistiche di diversi paesi, evidenziando differenze di tono, linguaggio e prospettiva tra le pubblicazioni internazionali. Il progetto illumina il contesto geopolitico della Guerra Fredda, contrapponendo l’entusiasmo trionfale dei media occidentali a una copertura più sobria e tecnica nei paesi del blocco sovietico. È stato realizzato per celebrare il 70° anniversario della NASA.",
+  "immagine" : "moonprint.jpg",
+  "url" : "https://sofiaribeiromarques.github.io/NASA/progetto/index.html",
+  "data" : {
+   "giorno" : 21,
+   "mese" : 4,
+   "anno" : 2026
+  },
+  "autore" : "Sofia Ribeiro Marques",
+  "tags" : [
+   "moon",
+   "comparison",
+   "newspaper"
+  ]
+ },
+ {
+  "titolo" : "Eyes on earth",
+  "descrizione" : "Attraverso la navigazione tra cinque satelliti chiave, scoprirai come la conquista dello spazio sia diventata lo strumento fondamentale per comprendere i cambiamenti globali. Inizia il tuo viaggio per vedere la Terra come non l'hai mai vista prima.",
+  "immagine" : "carla.jpg",
+  "url" : "https://carladegennaro.github.io/interaction_design/progetto_1.2/",
+  "data" : {
+   "giorno" : 21,
+   "mese" : 4,
+   "anno" : 2026
+  },
+  "autore" : "Carla De Gennaro",
+  "tags" : [
+   "climate change",
+   "satellites",
+   "earth"
+  ]
+ },
+ {
+  "titolo" : "Lunar Archive Explorer",
+  "descrizione" : "Il Lunar Archive Explorer è una piattaforma digitale che permette di navigare e consultare i dati scientifici e le immagini ad alta risoluzione raccolti durante le missioni sulla Luna.",
+  "immagine" : "LAE.jpeg",
+  "url" : "https://dadiccs.github.io/nasa/",
+  "data" : {
+   "giorno" : 21,
+   "mese" : 4,
+   "anno" : 2026
+  },
+  "autore" : "Daniele Falcone",
+  "tags" : [
+   "moon",
+   "apollo",
+   "missions"
+  ]
+ },
+ {
+  "titolo" : "Nebula Vision",
+  "descrizione" : "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
+  "immagine" : "nebulavision.jpg",
+  "url" : "https://ali-0032.github.io/CV429/05_prototipo_3/",
+  "data" : {
+   "giorno" : 21,
+   "mese" : 4,
+   "anno" : 2026
+  },
+  "autore" : "Alissa Bionda",
+  "tags" : [
+   "Nebula",
+   "NASA70",
+   "educational"
+  ]
+ },
+ {
+  "titolo" : "SolarScale",
+  "descrizione" : "Questo progetto esplora il Sistema Solare partendo da una criticità nella sua rappresentazione visiva, spesso poco accurata nel comunicare le reali proporzioni tra dimensioni dei pianeti e distanze nello spazio. Per superare questo limite, il sistema viene scomposto in elementi fondamentali come dimensioni, distanze e movimenti, permettendo una lettura più chiara e comprensibile. Il risultato è una visualizzazione interattiva che traduce dati scientifici in un’esperienza visiva immediata, rendendo percepibili proporzioni normalmente astratte e restituendo in modo efficace la reale struttura del Sistema Solare.",
+  "immagine" : "solarscale.jpg",
+  "url" : "https://lucamazzolaa.github.io/NASA70/",
+  "data" : {
+   "giorno" : 21,
+   "mese" : 4,
+   "anno" : 2026
+  },
+  "autore" : "Luca Mazzola",
+  "tags" : [
+   "solar system",
+   "dimensions",
+   "positions",
+   "distances",
+   "positions",
+   "planets"
+  ]
+ },
+ {
+  "titolo" : "hubble space telescope",
+  "descrizione" : "Il mio progetto intende rendere omaggio al satellite Hubble. Dal 1985 fino a oggi, grazie al suo contributo, abbiamo ottenuto le prime immagini dettagliate dello spazio, fondamentali per lo studio e la comprensione dell’universo.",
+  "immagine" : "hubble.png",
+  "url" : "https://laura-pantani.github.io/NASA70/p1/",
+  "data" : {
+   "giorno" : 21,
+   "mese" : 4,
+   "anno" : 2026
+  },
+  "autore" : "Laura Pantani",
+  "tags" : [
+   "satelliti",
+   "immagini",
+   "spazio"
+  ]
+ },
+ {
+  "titolo" : "Spacesuit evolution",
+  "descrizione" : "Spacesuit Evolution è un progetto che racconta l’evoluzione delle tute spaziali della NASA dagli anni ’60 fino al 2011, attraversando i principali programmi dell’esplorazione umana: Mercury, Gemini, Apollo e Space Shuttle.",
+  "immagine" : "Perseverance_rover.jpg",
+  "url" : "https://davidebarattini.github.io/media/spacesuit-evolution/index.html",
+  "data" : {
+   "giorno" : 21,
+   "mese" : 4,
+   "anno" : 2026
+  },
+  "autore" : "Davide Barattini",
+  "tags" : [
+   "Spacesuit"
+  ]
+ }
+]
+

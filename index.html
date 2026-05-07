@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>NASA70 — Sistemi Solari Interattivi</title>
+    <meta
+      name="description"
+      content="70 anni di NASA raccontati attraverso sistemi solari di progetti interattivi."
+    />
+    <link rel="preconnect" href="https://ixd-supsi.github.io" />
+    <link rel="stylesheet" href="styles/main.css" />
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+    <div id="labels"></div>
+
+    <header class="nasa-logo" aria-label="NASA 70th anniversary">
+      <a href="#" id="logoHome" aria-label="Torna al primo sistema">
+        <img src="assets/logo_nasa.png" alt="NASA" width="84" height="70" />
+      </a>
+      <span class="nasa-logo__tagline">70 anni · archivio progetti</span>
+    </header>
+
+    <h1 class="category-title" id="categoryTitle" aria-live="polite">
+      <span class="category-title__kicker">Sistema</span>
+      <span class="category-title__name">—</span>
+    </h1>
+
+    <nav class="system-nav" aria-label="Navigazione tra sistemi solari">
+      <button class="system-nav__arrow" id="prevSystem" aria-label="Sistema precedente">
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+          <path
+            d="M15 5l-7 7 7 7"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+      <ol class="system-nav__dots" id="systemDots" role="tablist"></ol>
+      <button class="system-nav__arrow" id="nextSystem" aria-label="Sistema successivo">
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+          <path
+            d="M9 5l7 7-7 7"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+    </nav>
+
+    <div class="hud-tooltip" id="hudTooltip" role="status" aria-live="polite"></div>
+
+    <aside class="info-card" id="infoCard" aria-hidden="true">
+      <button class="info-card__close" id="infoCardClose" aria-label="Chiudi">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path
+            d="M6 6l12 12M18 6L6 18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+      <div class="info-card__thumb" id="infoCardThumb" aria-hidden="true"></div>
+      <div class="info-card__body">
+        <p class="info-card__author" id="infoCardAuthor"></p>
+        <h2 class="info-card__title" id="infoCardTitle"></h2>
+        <p class="info-card__date" id="infoCardDate"></p>
+        <p class="info-card__description" id="infoCardDescription"></p>
+        <ul class="info-card__tags" id="infoCardTags"></ul>
+        <a class="info-card__cta" id="infoCardCta" href="#" target="_blank" rel="noopener">
+          Visita il progetto
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path
+              d="M7 17L17 7M9 7h8v8"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </a>
+      </div>
+    </aside>
+
+    <aside class="control-panel" id="controlPanel" aria-label="Controller layout home">
+      <div class="control-panel__header">
+        <div>
+          <p class="control-panel__kicker">Home layout</p>
+          <h2 class="control-panel__title">Controller</h2>
+        </div>
+        <button class="control-panel__icon" id="panelToggle" type="button" aria-label="Apri/chiudi pannello">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path d="M5 7h14M5 12h14M5 17h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="control-panel__content">
+        <div class="control-panel__section">
+          <p class="control-panel__label">Mostra in home</p>
+          <div class="segmented" role="group" aria-label="Modalità home">
+            <button class="segmented__btn is-active" id="modeCategories" type="button">Categorie</button>
+            <button class="segmented__btn" id="modeProjects" type="button">Progetti</button>
+          </div>
+        </div>
+
+        <div class="control-panel__section">
+          <div class="control-panel__row">
+            <p class="control-panel__label">Anelli / orbite</p>
+            <span class="control-panel__value" id="ringsValue">3</span>
+          </div>
+          <input id="ringsSlider" class="slider" type="range" min="1" max="6" step="1" value="3" />
+        </div>
+
+        <div class="control-panel__section">
+          <div class="control-panel__row">
+            <p class="control-panel__label">Dimensione pianeti</p>
+            <span class="control-panel__value" id="planetSizeValue">100%</span>
+          </div>
+          <input
+            id="planetSizeSlider"
+            class="slider"
+            type="range"
+            min="60"
+            max="160"
+            step="1"
+            value="100"
+          />
+        </div>
+
+        <div class="control-panel__section">
+          <div class="control-panel__row">
+            <p class="control-panel__label">Filtra categorie</p>
+            <button class="control-panel__link" id="selectAllCategories" type="button">tutte</button>
+          </div>
+          <div class="control-panel__list" id="categoryList"></div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="loader" id="loader" role="status" aria-live="polite">
+      <div class="loader__spinner" aria-hidden="true"></div>
+      <p class="loader__text">Sintonizzando i sistemi solari…</p>
+    </div>
+
+    <div class="error-banner" id="errorBanner" role="alert" hidden>
+      <p id="errorText">Impossibile caricare i progetti.</p>
+      <button id="retryButton" type="button">Riprova</button>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>
