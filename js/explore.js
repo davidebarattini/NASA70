@@ -102,7 +102,7 @@ function renderExploreList(nodes, sortBy) {
         : `<figure class="explore-item__media explore-item__media--empty" aria-hidden="true"></figure>`;
 
       return `
-        <li class="explore-item${hasSecond ? " explore-item--dual" : ""}" tabindex="0">
+        <li class="explore-item${hasSecond ? " explore-item--dual" : ""}">
           <div class="explore-item__row">
             <h2 class="explore-item__title">${escapeHtml(node.titolo || "Senza titolo")}</h2>
             ${node.autore ? `<p class="explore-item__author">${escapeHtml(node.autore)}</p>` : '<p class="explore-item__author explore-item__author--empty" aria-hidden="true">&nbsp;</p>'}

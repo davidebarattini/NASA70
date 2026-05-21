@@ -256,9 +256,7 @@ function previewAllTagsHtml(node) {
   if (!tags.length) {
     return '<p class="preview-panel__tagsEmpty mono"><span class="preview-panel__tagsInlineLabel">Tag:</span> Nessun tag</p>';
   }
-  return `<div class="preview-panel__tags" role="list" aria-label="Tag del progetto"><span class="preview-panel__tagsInlineLabel" aria-hidden="true">Tag:</span>${tags
-    .map((t) => `<span class="preview-panel__tag" role="listitem">${escapeHtml(t)}</span>`)
-    .join("")}</div>`;
+  return `<p class="preview-panel__tags"><span class="preview-panel__tagsInlineLabel">Tag:</span> ${tags.map((t) => escapeHtml(t)).join(", ")}</p>`;
 }
 
 /** Descrizione anteprima: oltre questa soglia, scroll minimale sul testo. */
