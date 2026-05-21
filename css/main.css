@@ -1164,6 +1164,7 @@ body {
 /* —— Top 10 split layout —— */
 .page-top10 {
   overflow: hidden;
+  --explore-legend-offset: 3.45rem;
 }
 
 .page-top10 .top10-shell {
@@ -1192,7 +1193,7 @@ body {
 
 .page-top10 .legend {
   position: absolute;
-  top: 3.45rem;
+  top: var(--explore-legend-offset);
   left: var(--explore-inset, clamp(1rem, 2.8vw, 1.65rem));
   right: auto;
   width: min(11rem, calc(100% - 2rem));
@@ -1255,7 +1256,7 @@ body {
 
 .page-top10 .top10-preview__empty {
   margin: 0;
-  padding: 2.5rem 1.75rem;
+  padding: var(--explore-legend-offset) 1.25rem 2.5rem;
   font-size: 0.84rem;
   line-height: 1.55;
   color: rgba(232, 234, 239, 0.42);
@@ -1474,6 +1475,10 @@ body {
     transform: translateY(0) translateX(0);
     opacity: 1;
     pointer-events: auto;
+  }
+
+  .page-top10 .top10-preview__empty {
+    padding-top: 1.25rem;
   }
 
   .page-top10 .filters {

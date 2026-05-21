@@ -123,7 +123,7 @@ async function main() {
   let hoverPreviewId = null;
 
   const PREVIEW_EMPTY =
-    '<p class="top10-preview__empty">Passa sul grafo o seleziona un progetto per l’anteprima.</p>';
+    '<p class="top10-preview__empty">Select a project to preview</p>';
 
   function showPreviewEmpty() {
     if (!previewInner) return;
