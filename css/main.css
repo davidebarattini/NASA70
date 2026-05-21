@@ -1518,7 +1518,8 @@ body {
 
 .explore-toolbar {
   display: block;
-  margin-bottom: 0.85rem;
+  margin-top: clamp(1.5rem, 4vw, 2.75rem);
+  margin-bottom: 0;
 }
 
 .explore-toolbar__col {
@@ -1528,8 +1529,38 @@ body {
 }
 
 .explore-toolbar__row {
-  display: flex;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 11rem) auto minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(0.75rem, 2vw, 1.5rem);
+  margin-bottom: clamp(1.75rem, 4.5vw, 3rem);
+}
+
+.explore-page-title {
+  grid-column: 1;
+  min-width: 0;
+  margin: 0;
+  padding-right: 1rem;
+  font-family: var(--font-sans);
+  font-size: clamp(1.35rem, 3.2vw, 2.1rem);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  color: rgba(232, 234, 239, 0.95);
+  text-align: left;
+}
+
+.explore-toolbar__sortRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 11rem) auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(0.75rem, 2vw, 1.5rem);
+  margin-bottom: 0.5rem;
+}
+
+.explore-toolbar__sortRow .explore-sortFilter {
+  grid-column: 4;
+  justify-self: end;
 }
 
 .explore-sortFilter {
@@ -1884,6 +1915,27 @@ body {
   .explore-main__inner {
     --explore-inset: 1rem;
     padding-inline: 1rem;
+  }
+
+  .explore-toolbar__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .explore-page-title {
+    padding-right: 0.5rem;
+  }
+
+  .explore-toolbar__sortRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin-bottom: 0.4rem;
+  }
+
+  .explore-toolbar__sortRow .explore-sortFilter {
+    grid-column: 2;
+  }
+
+  .explore-page-title {
+    font-size: clamp(1.15rem, 5.5vw, 1.5rem);
   }
 
   .explore-item__row {
