@@ -63,10 +63,8 @@ export function colorForLinkStrength(weight, minW, maxW) {
 }
 
 function legendStrengthScale(minW, maxW) {
-  const mid = minW + (maxW - minW) * 0.5;
   return [
     { label: "Pochi", color: colorForLinkStrength(minW, minW, maxW) },
-    { label: "Medi", color: colorForLinkStrength(mid, minW, maxW) },
     { label: "Molti", color: colorForLinkStrength(maxW, minW, maxW) },
   ];
 }

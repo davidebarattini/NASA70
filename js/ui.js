@@ -32,7 +32,7 @@ export function setupFilters(container, topTags, onSelect) {
     const allBtn = document.createElement("button");
     allBtn.type = "button";
     allBtn.className = "filter-pill";
-    allBtn.innerHTML = `<span class="filter-pill__label">Tutti</span>`;
+    allBtn.innerHTML = `<span class="filter-pill__label">TAG PIÙ COMUNI</span>`;
     allBtn.setAttribute("data-tag", "");
     container.appendChild(allBtn);
 

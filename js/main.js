@@ -56,7 +56,7 @@ function initStarfield(canvas) {
     const w = host?.clientWidth || window.innerWidth;
     const h = host?.clientHeight || window.innerHeight;
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = "rgba(3, 3, 8, 0.35)";
+    ctx.fillStyle = "rgba(10, 10, 10, 0.35)";
     ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = "rgba(210, 220, 255, 0.5)";
     for (const s of stars) {

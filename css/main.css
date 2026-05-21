@@ -1,7 +1,7 @@
 :root {
-  --void: #030308;
-  --void-mid: #0a0a12;
-  --void-edge: #12121c;
+  --void: #0a0a0a;
+  --void-mid: #121212;
+  --void-edge: #1a1a1a;
   --text: #e8eaef;
   --text-muted: rgba(232, 234, 239, 0.55);
   --line: rgba(200, 210, 255, 0.12);
@@ -78,7 +78,7 @@ body {
 }
 
 .site-header.is-scrolled {
-  background: rgba(3, 3, 8, 0.78);
+  background: rgba(10, 10, 10, 0.78);
   border-bottom-color: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -1182,7 +1182,7 @@ body {
     max-height: min(78vh, calc(100vh - 9.5rem));
     padding: 0.85rem 0.9rem;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(3, 3, 8, 0.94);
+    background: rgba(10, 10, 10, 0.94);
     transform: translateY(-6px) translateX(110%);
     opacity: 0;
     pointer-events: none;
@@ -1232,7 +1232,7 @@ body {
 
 .page-top10 .legend {
   position: absolute;
-  top: 2.85rem;
+  top: 3.45rem;
   left: var(--explore-inset, clamp(1rem, 2.8vw, 1.65rem));
   right: auto;
   width: min(11rem, calc(100% - 2rem));
@@ -1283,7 +1283,7 @@ body {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: rgba(4, 5, 10, 0.98);
+  background: var(--void);
   box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.04);
 }
 
@@ -1481,7 +1481,7 @@ body {
 
   .page-top10 .legend {
     position: fixed;
-    top: 4.2rem;
+    top: 4.75rem;
     right: 0.75rem;
     left: auto;
     max-height: min(36vh, calc(100vh - 9.5rem));
