@@ -92,7 +92,6 @@ async function main() {
   const tooltipEl = document.getElementById("tooltip");
   const modalRoot = document.getElementById("modal");
   const modalInner = document.getElementById("modal-inner");
-  const brand = document.getElementById("brand-reset");
   const legendEl = document.getElementById("legend-panel");
   const legendToggle = document.getElementById("legend-toggle");
   const mobilePeek = document.getElementById("mobile-peek");
@@ -270,17 +269,6 @@ async function main() {
       return;
     }
     hoverPreviewId = null;
-    showPreviewEmpty();
-  });
-
-  brand?.addEventListener("click", (e) => {
-    e.preventDefault();
-    filtersUi.setActive(null);
-    graph.setFilter(null);
-    syncLegendForFilter(null);
-    filtersUi.updateTags(tagsForFilterBar(null), null);
-    graph.resetView();
-    unlockPreview();
     showPreviewEmpty();
   });
 
