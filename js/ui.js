@@ -254,9 +254,9 @@ function previewAllTagsHtml(node) {
     .map((t) => String(t).trim())
     .filter(Boolean);
   if (!tags.length) {
-    return '<p class="preview-panel__tagsEmpty mono">Nessun tag</p>';
+    return '<p class="preview-panel__tagsEmpty mono"><span class="preview-panel__tagsInlineLabel">Tag:</span> Nessun tag</p>';
   }
-  return `<div class="preview-panel__tags" role="list" aria-label="Tag del progetto">${tags
+  return `<div class="preview-panel__tags" role="list" aria-label="Tag del progetto"><span class="preview-panel__tagsInlineLabel" aria-hidden="true">Tag:</span>${tags
     .map((t) => `<span class="preview-panel__tag" role="listitem">${escapeHtml(t)}</span>`)
     .join("")}</div>`;
 }
@@ -291,8 +291,8 @@ export function renderProjectPreviewHtml(node) {
             </div>`
           : ""
       }
-      ${node.autore ? `<p class="preview-panel__author">${escapeHtml(node.autore)}</p>` : ""}
       <h2 class="preview-panel__title">${escapeHtml(node.titolo || "Senza titolo")}</h2>
+      ${node.autore ? `<p class="preview-panel__author">di ${escapeHtml(node.autore)}</p>` : ""}
       ${previewAllTagsHtml(node)}
       ${previewBodyHtml(node.descrizione)}
       ${
