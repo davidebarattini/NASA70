@@ -1,337 +1,330 @@
-import * as THREE from "three";
-import { fetchProjects, groupByCategory } from "./data.js";
-import { createScene, handleResize } from "./scene.js";
+import { buildNetwork, filterNetworkByTag, legendTagsTopFromNodes } from "./graphData.js";
+import { createGraphController } from "./graph.js";
 import {
-  createSolarSystem,
-  hideSystem,
-  showSystem,
-  tickSystemFade,
-  updateSolarSystem,
-} from "./solarSystem.js";
-import { createInteractionController } from "./interaction.js";
-import { createUIController } from "./ui.js";
-import { applyHomeLayout, createMainSystem, updateMainSystem } from "./mainSystem.js";
-import { applyDragRotation, bindGalaxyDrag, createGalaxy, updateGalaxy } from "./galaxy.js";
-import { createHomePanel } from "./homePanel.js";
+  setupFilters,
+  setupTooltip,
+  setupModal,
+  setupLegend,
+  renderProjectPreviewHtml,
+} from "./ui.js";
+import { initHeaderScroll } from "./headerScroll.js";
 
-const canvas = document.getElementById("scene");
-const labelsEl = document.getElementById("labels");
-const loaderEl = document.getElementById("loader");
-const errorEl = document.getElementById("errorBanner");
-const errorTextEl = document.getElementById("errorText");
-const retryButton = document.getElementById("retryButton");
+initHeaderScroll();
 
-let renderer;
-let labelRenderer;
-let scene;
-let camera;
-let world = null;
-let systems = [];
-let mainSystem = null;
-let galaxy = null;
-let unbindGalaxyDrag = null;
-let activeSystem = null;
-let interaction = null;
-let ui = null;
-let homePanel = null;
-let allProjects = [];
-let categoryById = new Map();
-let lastFrame = performance.now();
-let cameraTarget = new THREE.Vector3(0, 0, 0);
-let cameraDesired = new THREE.Vector3(0, 14, 56);
-let cameraBase = new THREE.Vector3(0, 14, 56);
-let zoomOffset = 0;
-const ZOOM_LIMITS = { min: -35, max: 120 };
-let abortController = null;
-let sceneInitPromise = null;
+function initStarfield(canvas) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return () => {};
 
-function showLoader(visible) {
-  loaderEl.classList.toggle("is-hidden", !visible);
-}
-
-function showError(visible) {
-  errorEl.hidden = !visible;
-}
-
-function setErrorText(text) {
-  if (!errorTextEl) return;
-  if (text === undefined || text === null) {
-    errorTextEl.textContent = "Impossibile caricare i progetti.";
-    return;
-  }
-  errorTextEl.textContent = String(text);
-}
-
-async function bootstrap() {
-  showLoader(true);
-  showError(false);
-  setErrorText(null);
-  abortController?.abort();
-  abortController = new AbortController();
-
-  try {
-    setupScene();
-    if (sceneInitPromise) {
-      // Await WebGPU init (or no-op on WebGL). If init fails, we still proceed
-      // and rely on the renderer fallback logic.
-      await sceneInitPromise;
-    }
-
-    const projects = await fetchProjects({ signal: abortController.signal });
-    allProjects = projects;
-    const grouped = groupByCategory(projects);
-    if (grouped.length === 0) {
-      throw new Error("Nessun progetto disponibile");
-    }
-
-    buildSystems(grouped);
-    setupHomePanel(grouped);
-    setupUI(grouped);
-    setupInteraction();
-    if (ui.getInitialMode() === "category") {
-      enterCategory(ui.getActiveCategoryIndex(), { instant: true });
-    } else {
-      backToMain({ instant: true });
-    }
-    startRenderLoop();
-    showLoader(false);
-  } catch (err) {
-    if (err?.name === "AbortError") return;
-    console.error("[NASA70] bootstrap failed:", err);
-    showLoader(false);
-    setErrorText(err?.message || "Impossibile caricare i progetti.");
-    showError(true);
-  }
-}
-
-function setupScene() {
-  if (renderer) return;
-  const created = createScene({ canvas, labelsEl });
-  renderer = created.renderer;
-  labelRenderer = created.labelRenderer;
-  scene = created.scene;
-  camera = created.camera;
-  sceneInitPromise = created.initPromise ?? null;
-
-  world = new THREE.Group();
-  world.name = "world";
-  scene.add(world);
-
-  window.addEventListener("resize", () => {
-    handleResize({ renderer, labelRenderer, camera });
+  const stars = [];
+  let reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+  mq.addEventListener("change", () => {
+    reduced = mq.matches;
   });
 
-  // Zoom with trackpad / mouse wheel.
-  canvas.addEventListener(
-    "wheel",
-    (event) => {
-      event.preventDefault();
-      const delta = event.deltaY;
-      // Trackpads usually emit small deltas; mouse wheels bigger jumps.
-      const step = Math.abs(delta) < 50 ? 0.06 : 0.02;
-      zoomOffset = clamp(zoomOffset + delta * step, ZOOM_LIMITS.min, ZOOM_LIMITS.max);
-      applyCameraBase(cameraBase);
-    },
-    { passive: false },
-  );
-}
-
-function buildSystems(grouped) {
-  // Tear down anything from a previous bootstrap (e.g. after retry).
-  for (const s of systems) world.remove(s.group);
-  if (mainSystem) world.remove(mainSystem);
-  if (galaxy) world.remove(galaxy);
-
-  const isWebGPU = Boolean(renderer?.isWebGPURenderer);
-
-  systems = grouped.map(({ category, projects }) => {
-    const group = createSolarSystem({ category, projects, isWebGPU });
-    world.add(group);
-    return { category, projects, group };
-  });
-
-  const categories = systems.map((s) => s.category);
-  categoryById = new Map(categories.map((c) => [c.id, c]));
-
-  mainSystem = createMainSystem({ categories, isWebGPU });
-  world.add(mainSystem);
-
-  galaxy = createGalaxy({
-    starCount: 90000,
-    isWebGPU,
-  });
-  // Centered placement: galaxy aligned with the solar systems.
-  galaxy.visible = true;
-  galaxy.position.set(0, 0, 0);
-  galaxy.rotation.set(0.08, -0.18, 0.02);
-  galaxy.scale.setScalar(1.55);
-  setGalaxyOpacity(0.55);
-  world.add(galaxy);
-
-  unbindGalaxyDrag?.();
-  unbindGalaxyDrag = bindGalaxyDrag({ galaxyGroup: galaxy, targetGroup: world, canvas });
-}
-
-function setupHomePanel(grouped) {
-  const categories = grouped.map((g) => g.category);
-  const initialState = {
-    mode: "categories",
-    ringCount: 3,
-    planetScale: 1,
-    selectedCategoryIds: categories.map((c) => c.id),
-    collapsed: false,
-  };
-
-  homePanel = createHomePanel({
-    categories,
-    initialState,
-    onChange: (state) => {
-      applyHomeLayout(mainSystem, {
-        mode: state.mode,
-        categories,
-        projects: allProjects,
-        selectedCategoryIds: state.selectedCategoryIds,
-        ringCount: state.ringCount,
-        planetScale: state.planetScale,
-        categoryById,
+  function makeStars(w, h) {
+    stars.length = 0;
+    const count = Math.min(420, Math.floor((w * h) / 8500));
+    for (let i = 0; i < count; i++) {
+      stars.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        r: Math.random() * 1.05 + 0.15,
+        tw: Math.random() * Math.PI * 2,
+        sp: 0.015 + Math.random() * 0.028,
       });
-    },
-  });
+    }
+  }
 
-  // First paint.
-  const s = homePanel.getState();
-  applyHomeLayout(mainSystem, {
-    mode: s.mode,
-    categories,
-    projects: allProjects,
-    selectedCategoryIds: s.selectedCategoryIds,
-    ringCount: s.ringCount,
-    planetScale: s.planetScale,
-    categoryById,
-  });
-}
+  let raf = 0;
 
-function setupUI(grouped) {
-  ui = createUIController({
-    systems: grouped,
-    onEnterCategory: (idx) => {
-      enterCategory(idx);
-    },
-    onBackToMain: () => {
-      backToMain();
-    },
-    onClose: () => {},
-  });
-  ui.init();
-}
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const host = canvas.parentElement;
+    const w = host?.clientWidth || window.innerWidth;
+    const h = host?.clientHeight || window.innerHeight;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    makeStars(w, h);
+  }
 
-function setupInteraction() {
-  interaction = createInteractionController({
-    canvas,
-    camera,
-    getActiveSystem: () => activeSystem,
-    onHover: (payload) => ui.showTooltip(payload),
-    onSelect: (payload) => {
-      if (!payload) return;
-      if (payload.kind === "category") {
-        const idx = systems.findIndex((s) => s.category.id === payload.categoryId);
-        if (idx >= 0) {
-          ui.enterCategory(idx);
-          enterCategory(idx);
-        }
-      } else if (payload.kind === "project") {
-        ui.openInfoCard(payload.project);
+  function frame() {
+    const host = canvas.parentElement;
+    const w = host?.clientWidth || window.innerWidth;
+    const h = host?.clientHeight || window.innerHeight;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = "rgba(3, 3, 8, 0.35)";
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "rgba(210, 220, 255, 0.5)";
+    for (const s of stars) {
+      let alpha = 0.32;
+      if (!reduced) {
+        s.tw += s.sp;
+        alpha = 0.14 + (Math.sin(s.tw) * 0.5 + 0.5) * 0.42;
       }
+      ctx.globalAlpha = Math.max(0.06, Math.min(0.72, alpha));
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    raf = requestAnimationFrame(frame);
+  }
+
+  resize();
+  window.addEventListener("resize", resize);
+  raf = requestAnimationFrame(frame);
+
+  return () => {
+    cancelAnimationFrame(raf);
+    window.removeEventListener("resize", resize);
+  };
+}
+
+async function main() {
+  const stage = document.getElementById("main-stage");
+  const svg = document.getElementById("graph-svg");
+  const canvas = document.getElementById("starfield");
+  const filterBar = document.getElementById("filter-bar");
+  const tooltipEl = document.getElementById("tooltip");
+  const modalRoot = document.getElementById("modal");
+  const modalInner = document.getElementById("modal-inner");
+  const brand = document.getElementById("brand-reset");
+  const legendEl = document.getElementById("legend-panel");
+  const legendToggle = document.getElementById("legend-toggle");
+  const mobilePeek = document.getElementById("mobile-peek");
+  const previewInner = document.getElementById("preview-inner");
+  const previewPane = document.getElementById("preview-pane");
+  const graphPane = document.getElementById("top10-graph-pane");
+
+  if (!stage || !svg || !canvas || !filterBar || !tooltipEl || !modalRoot || !modalInner || !previewInner) return;
+
+  const res = await fetch("data.json", { cache: "no-store" });
+  if (!res.ok) throw new Error(`Impossibile caricare data.json (${res.status})`);
+  const raw = await res.json();
+  const allNodesModel = buildNetwork(raw);
+  let fullModel = buildNetwork(raw, { topTagsOnly: true });
+
+  if (legendEl) setupLegend(legendEl, fullModel.legend);
+
+  initStarfield(canvas);
+
+  const tooltip = setupTooltip(tooltipEl);
+  const modal = setupModal(modalRoot, modalInner);
+
+  const MOBILE_BP = 820;
+  function isMobile() {
+    return window.innerWidth <= MOBILE_BP;
+  }
+
+  let lockedPreviewId = null;
+  let hoverPreviewId = null;
+
+  const PREVIEW_EMPTY =
+    '<p class="top10-preview__empty">Passa sul grafo o seleziona un progetto per l’anteprima.</p>';
+
+  function showPreviewEmpty() {
+    if (!previewInner) return;
+    previewInner.innerHTML = PREVIEW_EMPTY;
+    hoverPreviewId = null;
+    if (!lockedPreviewId) previewPane?.classList.remove("top10-preview-pane--active");
+  }
+
+  function showPreview(node, { locked = false } = {}) {
+    if (!previewInner || !node) return;
+    const nid = node.id ?? null;
+    if (locked) {
+      lockedPreviewId = nid;
+    }
+    hoverPreviewId = nid;
+    previewInner.innerHTML = renderProjectPreviewHtml(node);
+    previewPane?.classList.add("top10-preview-pane--active");
+  }
+
+  function showLockedPreview() {
+    if (!lockedPreviewId) return;
+    const node = fullModel.nodes.find((n) => n.id === lockedPreviewId);
+    if (node) showPreview(node);
+    else showPreviewEmpty();
+  }
+
+  function unlockPreview() {
+    lockedPreviewId = null;
+    graph?.unpinNode?.();
+    graph?.clearFocus?.();
+    if (hoverPreviewId) {
+      const node = fullModel.nodes.find((n) => n.id === hoverPreviewId);
+      if (node) showPreview(node, { locked: false });
+      else showPreviewEmpty();
+    } else {
+      showPreviewEmpty();
+    }
+  }
+
+  const graph = createGraphController({
+    svg,
+    fullModel,
+    onNodeHover: (node) => {
+      if (isMobile()) return;
+      if (node?.id && hoverPreviewId === node.id) return;
+      showPreview(node);
     },
+    onNodeLeave: () => {
+      if (isMobile()) return;
+      if (lockedPreviewId) {
+        showLockedPreview();
+        return;
+      }
+      hoverPreviewId = null;
+      showPreviewEmpty();
+    },
+    onNodeClick: (node) => {
+      showPreview(node, { locked: true });
+      graph.pinNode?.(node.id);
+    },
+  });
+
+  graph.rebuild();
+
+  let didMobileInitZoom = false;
+  function applyMobileInitZoom() {
+    if (didMobileInitZoom) return;
+    if (!isMobile()) return;
+    didMobileInitZoom = true;
+    graph.zoomOut?.();
+    graph.zoomOut?.();
+  }
+  applyMobileInitZoom();
+
+  function syncLegendForFilter(activeTag) {
+    if (!legendEl) return;
+    const view = activeTag ? filterNetworkByTag(fullModel, activeTag) : fullModel;
+    setupLegend(legendEl, view.legend);
+  }
+
+  function nodesForTag(tag) {
+    if (!tag) return fullModel.nodes;
+    const tagNorm = String(tag).trim();
+    return fullModel.nodes.filter((n) => (n.tagsNorm || []).includes(tagNorm));
+  }
+
+  function tagsForFilterBar(activeTag) {
+    return legendTagsTopFromNodes(nodesForTag(activeTag));
+  }
+
+  let filtersUi;
+  function onFilterSelect(tag) {
+    graph.setFilter(tag);
+    syncLegendForFilter(tag || null);
+    filtersUi.updateTags(tagsForFilterBar(tag), tag);
+    unlockPreview();
+  }
+
+  filtersUi = setupFilters(filterBar, tagsForFilterBar(null), onFilterSelect);
+
+  function focusProjectFromUrl() {
+    const focusId = new URLSearchParams(location.search).get("focus");
+    if (!focusId) return;
+
+    let node = fullModel.nodes.find((n) => n.id === focusId);
+    if (!node) {
+      node = allNodesModel.nodes.find((n) => n.id === focusId);
+      if (node) {
+        fullModel = allNodesModel;
+        graph.setNetworkModel(allNodesModel);
+        syncLegendForFilter(null);
+        filtersUi.updateTags(tagsForFilterBar(null), null);
+      }
+    }
+    if (!node) return;
+
+    const focusProject = () => {
+      graph.resetView();
+      graph.pinNode?.(node.id);
+      showPreview(node, { locked: true });
+      history.replaceState(null, "", location.pathname);
+    };
+
+    const tryFocus = (attempt = 0) => {
+      if (graph.hasNode(node.id) || attempt > 48) {
+        focusProject();
+        return;
+      }
+      requestAnimationFrame(() => tryFocus(attempt + 1));
+    };
+
+    tryFocus();
+  }
+
+  focusProjectFromUrl();
+
+  window.addEventListener("resize", () => graph.resize());
+
+  stage.addEventListener("mouseleave", () => {
+    if (isMobile()) return;
+    if (lockedPreviewId) {
+      showLockedPreview();
+      return;
+    }
+    hoverPreviewId = null;
+    showPreviewEmpty();
+  });
+
+  brand?.addEventListener("click", (e) => {
+    e.preventDefault();
+    filtersUi.setActive(null);
+    graph.setFilter(null);
+    syncLegendForFilter(null);
+    filtersUi.updateTags(tagsForFilterBar(null), null);
+    graph.resetView();
+    unlockPreview();
+    showPreviewEmpty();
+  });
+
+  function setLegendOpen(open) {
+    const on = !!open;
+    document.body.classList.toggle("legend-open", on);
+    if (legendToggle) legendToggle.setAttribute("aria-expanded", on ? "true" : "false");
+  }
+  function toggleLegend() {
+    setLegendOpen(!document.body.classList.contains("legend-open"));
+  }
+
+  if (legendToggle && legendEl) {
+    setLegendOpen(false);
+    legendToggle.addEventListener("click", () => toggleLegend());
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        if (lockedPreviewId) {
+          unlockPreview();
+          return;
+        }
+        setLegendOpen(false);
+      }
+    });
+
+    window.addEventListener("resize", () => {
+      if (!isMobile()) setLegendOpen(false);
+    });
+  }
+
+  stage.addEventListener("click", (e) => {
+    if (e.target.closest(".graph-node")) return;
+    if (lockedPreviewId) unlockPreview();
   });
 }
 
-function hideActive({ instant } = {}) {
-  if (activeSystem) hideSystem(activeSystem, { instant });
-}
-
-function backToMain({ instant = false } = {}) {
-  hideActive({ instant });
-  activeSystem = mainSystem;
-  showSystem(activeSystem, { instant });
-  setGalaxyOpacity(0.55);
-  setCameraBase(new THREE.Vector3(0, 16, 70));
-  cameraTarget.set(0, 0, 0);
-}
-
-function enterCategory(index, { instant = false } = {}) {
-  if (!systems[index]) return;
-  hideActive({ instant });
-  activeSystem = systems[index].group;
-  showSystem(activeSystem, { instant });
-  // Keep galaxy as background but dim it inside categories.
-  setGalaxyOpacity(0.22);
-
-  const planetCount = systems[index].projects.length;
-  const distance = 46 + Math.sqrt(planetCount) * 5.5;
-  setCameraBase(new THREE.Vector3(0, 14 + Math.min(planetCount, 26) * 0.18, distance));
-  cameraTarget.set(0, 0, 0);
-}
-
-function setGalaxyOpacity(opacity) {
-  if (!galaxy) return;
-  const material = galaxy.userData?.material;
-  if (material && "opacity" in material) {
-    material.opacity = opacity;
-    material.needsUpdate = true;
+main().catch((err) => {
+  console.error(err);
+  const stage = document.getElementById("main-stage");
+  if (stage) {
+    stage.insertAdjacentHTML(
+      "beforeend",
+      `<p style="position:fixed;bottom:3rem;left:50%;transform:translateX(-50%);color:#fca5a5;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:0.75rem;">Errore caricamento archivio.</p>`
+    );
   }
-}
-
-function setCameraBase(vec3) {
-  cameraBase.copy(vec3);
-  // Reset zoom when switching context so it doesn't surprise you.
-  zoomOffset = clamp(zoomOffset, ZOOM_LIMITS.min, ZOOM_LIMITS.max);
-  applyCameraBase(cameraBase);
-}
-
-function applyCameraBase(base) {
-  // Zoom moves camera along Z (and a little Y to keep composition).
-  const z = Math.max(8, base.z + zoomOffset);
-  const y = base.y + zoomOffset * 0.12;
-  cameraDesired.set(base.x, y, z);
-}
-
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function startRenderLoop() {
-  lastFrame = performance.now();
-  requestAnimationFrame(loop);
-}
-
-function loop(now) {
-  const deltaSeconds = Math.min(0.05, (now - lastFrame) / 1000);
-  lastFrame = now;
-  const nowSeconds = now / 1000;
-
-  // Smoothly drift the camera toward the desired pose.
-  camera.position.lerp(cameraDesired, Math.min(1, deltaSeconds * 2));
-  camera.lookAt(cameraTarget);
-
-  if (world) applyDragRotation(world, deltaSeconds);
-  if (mainSystem?.visible) updateMainSystem(mainSystem, deltaSeconds);
-  tickSystemFade(mainSystem);
-  if (galaxy?.visible) updateGalaxy(galaxy, deltaSeconds, nowSeconds);
-
-  for (const sys of systems) {
-    if (sys.group.visible) updateSolarSystem(sys.group, deltaSeconds);
-    tickSystemFade(sys.group);
-  }
-
-  interaction?.tick();
-  // WebGPURenderer uses an async render path internally; calling it like this is fine.
-  renderer.render(scene, camera);
-  labelRenderer.render(scene, camera);
-
-  requestAnimationFrame(loop);
-}
-
-retryButton.addEventListener("click", bootstrap);
-
-bootstrap();
+});
