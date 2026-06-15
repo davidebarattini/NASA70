@@ -32,7 +32,7 @@ export function setupFilters(container, topTags, onSelect) {
     const allBtn = document.createElement("button");
     allBtn.type = "button";
     allBtn.className = "filter-pill";
-    allBtn.innerHTML = `<span class="filter-pill__label">TAG PIÙ COMUNI</span>`;
+    allBtn.innerHTML = `<span class="filter-pill__label">ALL PROJECTS</span>`;
     allBtn.setAttribute("data-tag", "");
     container.appendChild(allBtn);
 
@@ -248,15 +248,27 @@ function nodeTagsPanelHtml(node, variant) {
   return `<div class="${block}"><p class="${label}">Top ${LEGEND_TAG_TOP_COUNT} tag</p><div class="${wrap}">${tagPillsHtml(tags, pill, LEGEND_TAG_TOP_COUNT)}</div></div>`;
 }
 
-/** Tutti i tag del progetto (sotto il titolo in anteprima). */
-function previewAllTagsHtml(node) {
-  const tags = (node.tagsDisplay?.length ? node.tagsDisplay : node.tagsNorm || [])
+/** Tutti i tag del progetto (sotto il titolo in anteprima). Se `highlightTags`
+ *  è un Set di tag normalizzati, quei tag vengono mostrati in grassetto
+ *  (usato per evidenziare i tag in comune col progetto selezionato). */
+function previewAllTagsHtml(node, highlightTags) {
+  const norms = (node.tagsNorm || []).map((t) => String(t).trim().toLowerCase());
+  const labels = (node.tagsDisplay?.length ? node.tagsDisplay : node.tagsNorm || [])
     .map((t) => String(t).trim())
     .filter(Boolean);
-  if (!tags.length) {
+  if (!labels.length) {
     return '<p class="preview-panel__tagsEmpty mono"><span class="preview-panel__tagsInlineLabel">Tag:</span> Nessun tag</p>';
   }
-  return `<p class="preview-panel__tags"><span class="preview-panel__tagsInlineLabel">Tag:</span> ${tags.map((t) => escapeHtml(t)).join(", ")}</p>`;
+  const shared = highlightTags instanceof Set ? highlightTags : null;
+  const items = labels.map((label, i) => {
+    const norm = (norms[i] || label.toLowerCase()).trim();
+    const isShared = !!shared && shared.has(norm);
+    const safe = escapeHtml(label);
+    return isShared
+      ? `<strong class="preview-panel__tagShared">${safe}</strong>`
+      : safe;
+  });
+  return `<p class="preview-panel__tags"><span class="preview-panel__tagsInlineLabel">Tag:</span> ${items.join(", ")}</p>`;
 }
 
 /** Descrizione anteprima: oltre questa soglia, scroll minimale sul testo. */
@@ -266,19 +278,19 @@ function previewBodyHtml(text) {
   const raw = String(text || "").trim();
   if (!raw) return "";
   const escaped = escapeHtml(raw);
-  const wordCount = raw.split(/\s+/).filter(Boolean).length;
-  if (wordCount <= PREVIEW_BODY_MAX_WORDS) {
-    return `<p class="preview-panel__body">${escaped}</p>`;
-  }
-  return `<div class="preview-panel__bodyScroll" tabindex="0" aria-label="Descrizione completa"><p class="preview-panel__body">${escaped}</p></div>`;
+  return `<p class="preview-panel__body">${escaped}</p>`;
 }
 
 /**
  * HTML pannello anteprima (Top 10, colonna destra).
  * @param {object} node
+ * @param {{ highlightTags?: Set<string> }} [opts] - se `highlightTags` è
+ *   passato, i tag del nodo che appartengono al set vengono in grassetto
+ *   (utile per mostrare i tag in comune col progetto selezionato).
  */
-export function renderProjectPreviewHtml(node) {
+export function renderProjectPreviewHtml(node, opts = {}) {
   const heroSrc = node.previewPath ? getPreviewHref(node.previewPath) : "";
+  const highlightTags = opts.highlightTags instanceof Set ? opts.highlightTags : null;
 
   return `
     <article class="preview-panel" aria-live="polite">
@@ -291,13 +303,15 @@ export function renderProjectPreviewHtml(node) {
       }
       <h2 class="preview-panel__title">${escapeHtml(node.titolo || "Senza titolo")}</h2>
       ${node.autore ? `<p class="preview-panel__author">di ${escapeHtml(node.autore)}</p>` : ""}
-      ${previewAllTagsHtml(node)}
-      ${previewBodyHtml(node.descrizione)}
-      ${
-        node.url
-          ? `<a class="preview-panel__cta mono" href="${escapeAttr(node.url)}" target="_blank" rel="noopener noreferrer">Apri il progetto</a>`
-          : ""
-      }
+      <div class="preview-panel__lowerScroll" tabindex="0" aria-label="Dettagli progetto">
+        ${previewAllTagsHtml(node, highlightTags)}
+        ${previewBodyHtml(node.descrizione)}
+        ${
+          node.url
+            ? `<a class="preview-panel__cta mono" href="${escapeAttr(node.url)}" target="_blank" rel="noopener noreferrer">Apri il progetto</a>`
+            : ""
+        }
+      </div>
     </article>`;
 }
 

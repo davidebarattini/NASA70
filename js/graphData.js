@@ -140,8 +140,10 @@ const TOKEN_TO_MACROS = {
   frontpage: ["history", "archive"],
   comparison: ["data_visualization", "history"],
   planets: ["planets"],
+  planet: ["planets"],
   exoplanets: ["planets", "astronomy", "science"],
   "extreme words": ["planets", "science"],
+  "extreme worlds": ["planets", "science"],
   astronomy: ["astronomy"],
   "deep space": ["astronomy", "space"],
   climate: ["climate"],
@@ -170,6 +172,7 @@ const TOKEN_TO_MACROS = {
   sun: ["planets", "science"],
   "solar system": ["planets", "space", "science"],
   neo: ["earth", "science", "space"],
+  "near earth object": ["earth", "science", "space"],
   asteroids: ["planets", "space", "science"],
   radar: ["science", "earth"],
   "real life data": ["science", "data_visualization"],
@@ -181,6 +184,124 @@ const TOKEN_TO_MACROS = {
   "network-navigation": ["data_visualization"],
   "real-time-data": ["data_visualization", "science"],
   spacesuit: ["history", "apollo", "space"],
+  spacesuits: ["history", "apollo", "space", "educational"],
+  visor: ["history", "apollo"],
+  timeline: ["history", "data_visualization"],
+  explore: ["space"],
+  // --- nuovi token introdotti dal dataset esteso ---
+  navigation: ["space"],
+  interface: ["data_visualization"],
+  "lunar-surface": ["apollo", "space"],
+  "mission-control": ["apollo", "history"],
+  communication: ["space", "history"],
+  observation: ["earth", "science"],
+  physics: ["science", "educational"],
+  stars: ["astronomy"],
+  galaxies: ["astronomy"],
+  "black-hole": ["astronomy", "science"],
+  gravity: ["science", "astronomy"],
+  data: ["data_visualization"],
+  signals: ["audio", "science"],
+  "solar-wind": ["science", "space"],
+  particles: ["science"],
+  simulation: ["science", "game"],
+  simulator: ["3d", "game"],
+  saturn: ["planets", "astronomy"],
+  rings: ["planets", "astronomy"],
+  jupiter: ["planets", "astronomy"],
+  storm: ["climate", "planets"],
+  atmosphere: ["planets", "earth", "science"],
+  "habitable-zone": ["planets", "astronomy", "science"],
+  museum: ["archive", "history"],
+  satellite: ["earth", "space", "science"],
+  monitoring: ["earth", "climate"],
+  geology: ["planets", "science"],
+  samples: ["science"],
+  clouds: ["climate", "earth"],
+  interactive: ["data_visualization"],
+  dashboard: ["data_visualization"],
+  launch: ["space", "history"],
+  animation: ["2d"],
+  storytelling: ["history"],
+  badges: ["educational"],
+  identity: ["educational"],
+  nasa: ["history"],
+  design: ["educational", "data_visualization"],
+  weather: ["climate", "earth"],
+  model: ["3d"],
+  voices: ["audio", "history"],
+  "space-weather": ["space", "science"],
+  aurora: ["earth", "climate", "astronomy"],
+  magnetosphere: ["earth", "science"],
+  field: ["earth", "science"],
+  eclipse: ["astronomy", "space"],
+  transit: ["astronomy", "planets"],
+  comet: ["astronomy", "space"],
+  docking: ["space", "history"],
+  iss: ["space", "history"],
+  voyager: ["space", "history", "astronomy"],
+  "deep-space": ["astronomy", "space"],
+  cards: ["educational"],
+  "solar-system": ["planets", "space", "science"],
+  // alias plurale di "image" per coerenza con "images" già mappato
+  photo: ["archive", "astronomy"],
+  grid: ["data_visualization"],
+  risk: ["data_visualization", "science"],
+  phases: ["astronomy"],
+  countdown: ["apollo", "history"],
+  mirror: ["astronomy", "science"],
+  optics: ["astronomy", "science"],
+  colony: ["space", "educational"],
+  habitat: ["space", "educational"],
+  dust: ["astronomy", "space"],
+  pathfinding: ["robot", "game"],
+  radio: ["audio", "history"],
+  transmission: ["audio"],
+  route: ["space", "data_visualization"],
+  map: ["data_visualization"],
+  "robotic-arm": ["robot", "space"],
+  engineering: ["science", "history"],
+  terrain: ["planets", "3d"],
+  scan: ["3d", "science"],
+  "night-lights": ["earth", "climate"],
+  cities: ["earth"],
+  infrared: ["astronomy", "science"],
+  telescope: ["astronomy", "science"],
+  "lunar-module": ["apollo", "history"],
+  network: ["data_visualization", "space"],
+  objects: ["archive", "history"],
+  ocean: ["earth", "climate"],
+  carbon: ["climate", "earth"],
+  "heat-map": ["climate", "data_visualization", "earth"],
+  debris: ["space", "earth"],
+  tracking: ["data_visualization", "space"],
+  landing: ["apollo", "space"],
+  "landing-sites": ["apollo", "history"],
+  rockets: ["space", "history"],
+  rocket: ["space", "history"],
+  research: ["science"],
+  classification: ["data_visualization", "astronomy"],
+  ice: ["planets", "climate"],
+  moons: ["planets", "astronomy"],
+  "outer-solar-system": ["planets", "astronomy"],
+  typography: ["2d", "data_visualization"],
+  visual: ["data_visualization"],
+  layers: ["data_visualization", "2d"],
+  illustration: ["2d"],
+  spacecraft: ["space", "history"],
+  components: ["3d", "educational"],
+  coordinates: ["astronomy", "space"],
+  search: ["data_visualization"],
+  learning: ["educational"],
+  telemetry: ["data_visualization", "science"],
+  scanner: ["data_visualization"],
+  video: ["history", "archive"],
+  launches: ["space", "history"],
+  camera: ["robot"],
+  waves: ["audio", "science"],
+  "physics-engine": ["science", "game"],
+  discoveries: ["history", "science"],
+  control: ["space"],
 };
 
 function addValidMacros(out, ids) {
@@ -244,12 +365,14 @@ function tagsForTagLinks(tagsNorm) {
 
 /** File effettivamente presenti in `Preview/` (nomi esatti, case-sensitive). */
 const PREVIEW_FILES = [
-  "Radiowawe_NASA_1.jpg",
-  "Radiowawe_NASA_2.jpg",
+  "beyondthemyth_1.jpg",
+  "beyondthemyth_2.jpg",
   "eyesonearth_1.jpg",
   "eyesonearth_2.jpg",
   "hubble_1.jpg",
   "hubble_2.jpg",
+  "lunararchive_1.jpg",
+  "lunararchive_2.jpg",
   "moonprint_1.jpg",
   "moonprint_2.jpg",
   "nebulavision_1.jpg",
@@ -260,8 +383,14 @@ const PREVIEW_FILES = [
   "otherworlds_2.jpg",
   "perseverancerover_1.jpg",
   "perseverancerover_2.jpg",
+  "projectmoonbound_1.jpg",
+  "projectmoonbound_2.jpg",
+  "radiowave_1.jpg",
+  "radiowave_2.jpg",
   "solarscale_1.jpg",
   "solarscale_2.jpg",
+  "spacesuits_1.jpg",
+  "spacesuits_2.jpg",
 ];
 
 /** Nomi nel JSON (progetti finti) → stem normalizzato dei file in Preview. */
@@ -269,25 +398,33 @@ const PREVIEW_IMAGE_ALIASES = {
   thumbnail: "perseverancerover",
   perseverance_rover: "perseverancerover",
   perseverancerover: "perseverancerover",
-  nasasay: "radiowawenasa",
-  radiowavenasa: "radiowawenasa",
-  lae: "moonprint",
+  nasasay: "radiowave",
+  radiowavenasa: "radiowave",
+  radiowave: "radiowave",
+  lae: "lunararchive",
+  lunararchive: "lunararchive",
+  lunararchiveexplorer: "lunararchive",
   carla: "eyesonearth",
+  eyesonearth: "eyesonearth",
   nebulavision: "nebulavision",
   moonprint: "moonprint",
   otherworlds: "otherworlds",
   solarscale: "solarscale",
   hubble: "hubble",
   neoprotocol: "neoprotocol",
-  projectmoonbound: "moonprint",
+  projectmoonbound: "projectmoonbound",
+  beyondthemyth: "beyondthemyth",
+  spacesuits: "spacesuits",
+  spacesuitevolution: "spacesuits",
 };
 
 /** Fallback per titolo se `immagine` è assente o placeholder (`...`). */
 const PREVIEW_FALLBACK_BY_TITLE = {
-  projectmoonbound: "moonprint",
-  lunararchiveexplorer: "moonprint",
-  beyondthemyth: "neoprotocol",
-  spacesuitevolution: "hubble",
+  projectmoonbound: "projectmoonbound",
+  lunararchiveexplorer: "lunararchive",
+  beyondthemyth: "beyondthemyth",
+  spacesuitevolution: "spacesuits",
+  radiowawenasa: "radiowave",
 };
 
 function isPlaceholderImageName(name) {
@@ -489,6 +626,9 @@ export function buildNetwork(raw, options = {}) {
 
   const links = [];
 
+  // Inizializza l'accumulatore di overlap totale (somma dei tag in comune con tutti gli altri).
+  for (const n of nodes) n.tagsCommonTotal = 0;
+
   for (let i = 0; i < nodes.length; i++) {
     for (let j = i + 1; j < nodes.length; j++) {
       const A = nodes[i];
@@ -509,16 +649,19 @@ export function buildNetwork(raw, options = {}) {
         if (tagsB.has(t)) tagsCommon += 1;
       }
 
-      const unionTags = new Set([...A.tagLinkSet, ...B.tagLinkSet]);
-      const jaccardTags = unionTags.size > 0 ? tagShared / unionTags.size : 0;
+      // Il contributo al "peso" globale per la dimensione del nodo
+      // (`tagsCommonTotal`) si accumula anche per overlap minimo: serve
+      // per scalare i pianetini in modo coerente.
+      if (tagsCommon >= 1) {
+        A.tagsCommonTotal += tagsCommon;
+        B.tagsCommonTotal += tagsCommon;
+      }
+      // Creiamo un arco vero solo se l'overlap è ≥ 2 tag in comune.
+      // Con dataset grandi (≥ 100 progetti) tenere ogni coppia con 1 tag in
+      // comune genera migliaia di archi e fa laggare la simulazione D3.
+      if (tagsCommon < 2) continue;
 
-      const hasMacroLink = macroShared >= 1;
-      const hasTagLink =
-        tagShared >= 2 || (tagShared >= 1 && (jaccardTags >= 0.1 || unionTags.size <= 10));
-
-      if (!hasMacroLink && !hasTagLink) continue;
-
-      const weight = macroShared * 4 + tagShared;
+      const weight = macroShared * 4 + tagShared + tagsCommon;
 
       links.push({
         source: A.id,
@@ -529,6 +672,15 @@ export function buildNetwork(raw, options = {}) {
         tagsCommon,
       });
     }
+  }
+
+  // Normalizza l'overlap totale in [0..1] per usarlo come "rilevanza" (dimensione/centralità).
+  let maxOverlap = 0;
+  for (const n of nodes) {
+    if (n.tagsCommonTotal > maxOverlap) maxOverlap = n.tagsCommonTotal;
+  }
+  for (const n of nodes) {
+    n.overlapRatio = maxOverlap > 0 ? n.tagsCommonTotal / maxOverlap : 0;
   }
 
   const legendStrength = applyLinkStrengthColors(links);

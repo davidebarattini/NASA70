@@ -1,5 +1,5 @@
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
-import { filterNetworkByTag, MACRO_META, getPreviewHref } from "./graphData.js";
+import { filterNetworkByTag, getPreviewHref } from "./graphData.js";
 
 /** Quattro dimensioni discrete stelle (legenda: S → XL). */
 export const NODE_SCALE_STEPS = Object.freeze([0.72, 1.12, 1.55, 2.2]);
@@ -24,165 +24,23 @@ function thumbClipId(d) {
   return `thumbc-${d.id}`;
 }
 
-function clusterCenter(clusterId, width, height) {
-  const idx = Math.max(
-    0,
-    MACRO_META.findIndex((c) => c.id === clusterId)
-  );
-  const t = MACRO_META.length > 0 ? idx / MACRO_META.length : 0;
-  const angle = t * Math.PI * 2 - Math.PI / 2;
-  // Centri macro morbidi: area centrale, non anello rigido.
-  const rx = width * 0.52;
-  const ry = height * 0.38;
-  return {
-    x: width * 0.5 + Math.cos(angle) * rx,
-    y: height * 0.5 + Math.sin(angle) * ry + GRAPH_Y_OFFSET,
-  };
-}
-
-function macroTarget(n, width, height) {
-  const center = clusterCenter(n.primaryMacro, width, height);
-  const dx = Number(n._macroDx) || 0;
-  const dy = Number(n._macroDy) || 0;
-  return {
-    x: center.x + dx,
-    y: center.y + dy,
-  };
-}
-
-/** Offset deterministico attorno al centro macrocategoria (evita sovrapposizioni su assi). */
-function assignClusterOffsets(nodes, isAllView) {
-  /** @type {Map<string, object[]>} */
-  const byMacro = new Map();
-  for (const n of nodes) {
-    const key = n.primaryMacro || "default";
-    if (!byMacro.has(key)) byMacro.set(key, []);
-    byMacro.get(key).push(n);
-  }
-
-  for (const group of byMacro.values()) {
-    group.sort((a, b) => String(a.id).localeCompare(String(b.id)));
-    const count = group.length;
-    const baseR = isAllView ? 52 : 38;
-    const spreadR = isAllView ? 108 : 72;
-
-    group.forEach((n, i) => {
-      const id = String(n.id);
-      let h = 2166136261;
-      for (let k = 0; k < id.length; k++) {
-        h ^= id.charCodeAt(k);
-        h = Math.imul(h, 16777619);
-      }
-      const hash = h >>> 0;
-      const angle = (hash % 6283) * 0.001 + i * 1.17 + (hash % 401) * 0.0023;
-      const t = count > 1 ? i / (count - 1) : 0;
-      const radius = baseR + Math.sqrt(t) * spreadR + (hash % 113) * 0.62 + (hash % 19) * 2.4;
-      n._macroDx = Math.cos(angle) * radius;
-      n._macroDy = Math.sin(angle) * radius;
-    });
-  }
-}
-
-const ALIGN_SNAP_ANGLES = [
-  0,
-  Math.PI / 4,
-  Math.PI / 2,
-  (3 * Math.PI) / 4,
-  Math.PI,
-  -Math.PI / 4,
-  -Math.PI / 2,
-  (-3 * Math.PI) / 4,
-];
-
-function snapMisalignment(angle) {
-  let best = Math.PI;
-  for (const s of ALIGN_SNAP_ANGLES) {
-    const d = Math.abs(Math.atan2(Math.sin(angle - s), Math.cos(angle - s)));
-    if (d < best) best = d;
-  }
-  return best;
-}
-
-function stablePerpDir(a, b) {
-  const ida = String(a.id);
-  const idb = String(b.id);
-  return (ida.charCodeAt(0) + idb.charCodeAt(0) + ida.length) % 2 === 0 ? 1 : -1;
-}
-
-/** Evita link orizzontali, verticali o diagonali (sovrapposizione linee). */
-function nudgeLinkOffAxis(a, b, { angleTol, maxNudge, gain }) {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const dist = Math.hypot(dx, dy);
-  if (dist < 22) return;
-
-  const mis = snapMisalignment(Math.atan2(dy, dx));
-  if (mis > angleTol) return;
-
-  const t = 1 - mis / angleTol;
-  const push = Math.min(maxNudge, dist * 0.05) * t * gain;
-  const dir = stablePerpDir(a, b);
-  const px = (-dy / dist) * dir;
-  const py = (dx / dist) * dir;
-
-  if (a.fx == null && a.fy == null) {
-    a.x += px * push * 0.5;
-    a.y += py * push * 0.5;
-  }
-  if (b.fx == null && b.fy == null) {
-    b.x -= px * push * 0.5;
-    b.y -= py * push * 0.5;
-  }
-}
-
-function forceAvoidAlignedLinks(opts = {}) {
-  let links = [];
-  const angleTol = ((opts.angleDeg ?? 8) * Math.PI) / 180;
-  const strength = opts.strength ?? 0.2;
-  const maxNudge = opts.maxNudge ?? 1.6;
-
-  function force(alpha) {
-    const k = strength * Math.min(1, alpha + 0.05);
-    if (k < 0.006) return;
-    for (const l of links) {
-      const a = l.source;
-      const b = l.target;
-      if (!a || !b) continue;
-      nudgeLinkOffAxis(a, b, { angleTol, maxNudge, gain: k });
-    }
-  }
-
-  force.links = function (_) {
-    if (arguments.length) {
-      links = _;
-      return force;
-    }
-    return links;
-  };
-
-  return force;
-}
-
-function finalizeDeAlign(nodes, links, passes = 6) {
-  const angleTol = (8 * Math.PI) / 180;
-  for (let p = 0; p < passes; p++) {
-    for (const l of links) {
-      const a = l.source;
-      const b = l.target;
-      if (!a || !b) continue;
-      nudgeLinkOffAxis(a, b, { angleTol, maxNudge: 3.2, gain: 0.85 - p * 0.08 });
-    }
-  }
-}
-
-function seedNodes(nodes, width, height, spread) {
-  for (const n of nodes) {
-    const { x: cx, y: cy } = macroTarget(n, width, height);
-    n.x = cx + (Math.random() - 0.5) * spread;
-    n.y = cy + (Math.random() - 0.5) * spread;
+function seedNodes(nodes, width, height, spread, usableHeight, yOffset) {
+  const cx = width / 2;
+  const h = Number.isFinite(usableHeight) && usableHeight > 0 ? usableHeight : height;
+  const off = Number.isFinite(yOffset) ? yOffset : GRAPH_Y_OFFSET;
+  const cy = h / 2 + off;
+  const maxR = Math.min(width, h) * 0.42;
+  const minR = Math.min(width, h) * 0.06;
+  nodes.forEach((n, i) => {
+    const overlap = Math.max(0, Math.min(1, Number(n.overlapRatio) || 0));
+    const r = minR + (1 - overlap) * (maxR - minR);
+    // Distribuzione angolare deterministica + jitter casuale.
+    const angle = (i / Math.max(1, nodes.length)) * Math.PI * 2 + Math.random() * 0.4;
+    n.x = cx + Math.cos(angle) * r + (Math.random() - 0.5) * spread * 0.08;
+    n.y = cy + Math.sin(angle) * r + (Math.random() - 0.5) * spread * 0.08;
     if (n.vx !== undefined) n.vx = 0;
     if (n.vy !== undefined) n.vy = 0;
-  }
+  });
 }
 
 /**
@@ -192,9 +50,14 @@ function seedNodes(nodes, width, height, spread) {
  * @param {(node: object) => void} [options.onNodeHover]
  * @param {(node: object|null) => void} [options.onNodeLeave]
  * @param {(node: object) => void} [options.onNodeClick]
+ * @param {boolean} [options.decorative] — se true: niente hover/click/focus,
+ *   solo drag dei nodi. Usato per la mini-preview del grafo nella hero
+ *   della pagina PROJECTS.
  */
 export function createGraphController(options) {
   const { svg, onNodeHover, onNodeLeave, onNodeClick } = options;
+  const decorative = !!options.decorative;
+  if (decorative) svg.classList.add("graph-svg--decorative");
   let networkModel = options.fullModel;
   const gRoot = d3.select(svg).select("#zoom-layer");
   const gLinks = gRoot.select("#links-layer");
@@ -202,6 +65,40 @@ export function createGraphController(options) {
 
   let width = svg.clientWidth || window.innerWidth;
   let height = svg.clientHeight || window.innerHeight;
+  // Limite inferiore: la filter-bar è `position: fixed; bottom: 0` quindi
+  // copre la parte bassa dell'SVG. Calcoliamo la y in coordinate SVG dove
+  // iniziano i tag, così i nodi non finiscono mai dietro.
+  const filterBarEl = document.getElementById("filter-bar");
+  function computeBottomBound() {
+    // In modalità decorativa non c'è filter-bar: il bound inferiore è
+    // l'intera altezza dell'SVG (i nodi possono usare tutta la verticale).
+    if (decorative) return height;
+    const svgRect = svg.getBoundingClientRect();
+    if (filterBarEl) {
+      const r = filterBarEl.getBoundingClientRect();
+      if (r && Number.isFinite(r.top) && r.top > 0) {
+        return Math.max(80, r.top - svgRect.top - 12);
+      }
+    }
+    return height - 80;
+  }
+  let bottomBound = computeBottomBound();
+
+  // Quando la filter-bar cambia altezza (es. wrap dei tag) aggiorniamo il
+  // limite inferiore e diamo un piccolo restart alla simulazione così i
+  // nodi si ricompongono dentro l'area visibile.
+  if (filterBarEl && typeof ResizeObserver !== "undefined") {
+    const ro = new ResizeObserver(() => {
+      const next = computeBottomBound();
+      if (Math.abs(next - bottomBound) > 2) {
+        bottomBound = next;
+        if (simulation) {
+          simulation.alpha(Math.max(simulation.alpha(), 0.25)).restart();
+        }
+      }
+    });
+    ro.observe(filterBarEl);
+  }
   let activeTagFilter = null;
   /** @type {d3.Simulation<any, undefined>|null} */
   let simulation = null;
@@ -223,6 +120,15 @@ export function createGraphController(options) {
   let pinnedNodeId = null;
   /** @type {Map<string, {x:number,y:number}>} */
   let nodePos = new Map();
+  /** @type {object[]} */
+  let currentNodes = [];
+  /** @type {() => void} */
+  let applyInactiveLayoutFn = () => {};
+  /** Snapshot layout (ALL PROJECTS) per ripristino dopo filtri. */
+  /** @type {Map<string, {x:number,y:number}>|null} */
+  let allProjectsLayoutSnapshot = null;
+  /** @type {number} */
+  const FILTER_TRANSITION_MS = 460;
 
   function applyVizLayers() {
     const showL = vizLinks;
@@ -248,13 +154,15 @@ export function createGraphController(options) {
 
   applyScale(1);
 
-  d3.select(svg).on("wheel.zoomScale", (event) => {
-    // zoom con rotella; nessun pan
-    event.preventDefault();
-    const delta = -event.deltaY;
-    const factor = Math.pow(1.0016, delta);
-    applyScale(viewScale * factor);
-  });
+  if (!decorative) {
+    d3.select(svg).on("wheel.zoomScale", (event) => {
+      // zoom con rotella; nessun pan
+      event.preventDefault();
+      const delta = -event.deltaY;
+      const factor = Math.pow(1.0016, delta);
+      applyScale(viewScale * factor);
+    });
+  }
 
   // Pan trascinando lo sfondo (non nodi / non link).
   const panDrag = d3
@@ -279,17 +187,42 @@ export function createGraphController(options) {
       applyScale(viewScale);
     });
 
-  d3.select(svg).call(panDrag);
+  if (!decorative) d3.select(svg).call(panDrag);
 
-  function nodeDims() {
-    const ringR = 17 * nodeScale;
-    const thumbR = 12.2 * nodeScale;
-    const hitR = 29 * nodeScale;
+  // Scala per-nodo basata sull'overlap totale di tag: più tag in comune complessivi
+  // → pianeta più grande (range ~0.78x .. 1.85x rispetto allo step base).
+  function nodeOverlapFactor(d) {
+    const r = Math.max(0, Math.min(1, Number(d?.overlapRatio) || 0));
+    return 0.78 + r * 1.07;
+  }
+
+  function nodeDims(d) {
+    const f = d ? nodeOverlapFactor(d) : 1;
+    // Nodi "disattivati" (fuori dal filtro) → versione mini in basso a sx.
+    const inactiveFactor = d?._inactive ? 0.42 : 1;
+    const thumbR = 12.2 * nodeScale * f * inactiveFactor;
+    const ringR = thumbR + 0.6;
+    const hitR = 29 * nodeScale * Math.max(1, f) * inactiveFactor;
     return { ringR, thumbR, hitR, thumbD: thumbR * 2 };
   }
 
   function getModel() {
-    return activeTagFilter ? filterNetworkByTag(networkModel, activeTagFilter) : networkModel;
+    // Quando c'è un filtro attivo, NON filtriamo via i nodi: marchiamo
+    // come `_inactive` quelli che non hanno il tag, così possiamo spostarli
+    // in basso a sinistra e tenerli visibili ma "spenti".
+    if (!activeTagFilter) return networkModel;
+    const tagNorm = String(activeTagFilter).trim();
+    const nodes = networkModel.nodes.map((n) => ({
+      ...n,
+      _inactive: !(n.tagsNorm || []).includes(tagNorm),
+    }));
+    // Manteniamo solo i link tra nodi attivi (così non "tirano" gli inactive).
+    const activeIds = new Set(nodes.filter((n) => !n._inactive).map((n) => n.id));
+    const links = networkModel.links.filter(
+      (l) => activeIds.has(typeof l.source === "object" ? l.source.id : l.source)
+        && activeIds.has(typeof l.target === "object" ? l.target.id : l.target),
+    );
+    return { ...networkModel, nodes, links };
   }
 
   function drag(simulationRef) {
@@ -317,30 +250,51 @@ export function createGraphController(options) {
       d.fy = null;
       d.vx = 0;
       d.vy = 0;
-      const links = simulationRef.force("link")?.links?.() || [];
-      finalizeDeAlign(simulationRef.nodes(), links, 3);
       ticked();
     }
     return d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended);
   }
 
   function ticked() {
-    linkSel
-      .attr("x1", (d) => d.source.x)
-      .attr("y1", (d) => d.source.y)
-      .attr("x2", (d) => d.target.x)
-      .attr("y2", (d) => d.target.y);
+    // Un singolo pass: clamp + transform + cache. Evitiamo D3 .attr()
+    // su selezione (più costoso di setAttribute diretto) e riusiamo il Map.
+    const boundPad = 14;
+    const yMax = bottomBound;
+    const w = width;
+    const baseThumb = 12.2 * nodeScale;
+    nodePos.clear();
+    nodeSel.each(function (d) {
+      if (!d || !Number.isFinite(d.x) || !Number.isFinite(d.y)) return;
+      // Inline di nodeDims().thumbR (evita allocazione dell'oggetto ogni tick).
+      const overlap = Math.max(0, Math.min(1, +d.overlapRatio || 0));
+      const f = 0.78 + overlap * 1.07;
+      const inactiveK = d._inactive ? 0.42 : 1;
+      const r = baseThumb * f * inactiveK + boundPad;
 
-    nodeSel.attr("transform", (d) => `translate(${d.x},${d.y})`);
+      if (d.x < r) { d.x = r; if (d.vx < 0) d.vx = 0; }
+      else if (d.x > w - r) { d.x = w - r; if (d.vx > 0) d.vx = 0; }
+      if (d.y < r) { d.y = r; if (d.vy < 0) d.vy = 0; }
+      else if (d.y > yMax - r) { d.y = yMax - r; if (d.vy > 0) d.vy = 0; }
+      if (Number.isFinite(d.fx)) d.fx = d.fx < r ? r : d.fx > w - r ? w - r : d.fx;
+      if (Number.isFinite(d.fy)) d.fy = d.fy < r ? r : d.fy > yMax - r ? yMax - r : d.fy;
 
-    // cache posizioni per richieste esterne (mobile auto-pan)
-    nodePos = new Map();
-    nodeSel.each((d) => {
-      if (d?.id != null && Number.isFinite(d.x) && Number.isFinite(d.y)) nodePos.set(String(d.id), { x: d.x, y: d.y });
+      this.setAttribute("transform", `translate(${d.x},${d.y})`);
+      if (d.id != null) nodePos.set(String(d.id), { x: d.x, y: d.y });
     });
+
+    // I link sono nascosti via CSS; aggiorniamo le coordinate solo quando
+    // sono effettivamente visualizzati (vizLinks attivo).
+    if (vizLinks && !linkSel.empty()) {
+      linkSel
+        .attr("x1", (d) => d.source.x)
+        .attr("y1", (d) => d.source.y)
+        .attr("x2", (d) => d.target.x)
+        .attr("y2", (d) => d.target.y);
+    }
   }
 
   function rebuild() {
+    bottomBound = computeBottomBound();
     const model = getModel();
     const nodes = model.nodes.map((n) => ({ ...n }));
     const linkObjs = model.links.map((l) => ({
@@ -382,17 +336,57 @@ export function createGraphController(options) {
     const density = Math.sqrt(n);
     const seedSpread =
       (isAllView ? 280 : 165) + Math.min(isAllView ? 720 : 340, n * (isAllView ? 9.5 : 6.8));
-    const chargeBase = (-380 - density * 52) * (isAllView ? 2.05 : 1.45);
-    const chargeDistanceMax = isAllView ? 680 : 480;
-    const dims = nodeDims();
-    const collR = Math.max(dims.hitR + 14, dims.thumbR + 18, isAllView ? 50 : 44);
+    const chargeBase = (-380 - density * 52) * (isAllView ? 1.65 : 1.2);
+    // Su dataset medio-grandi accorciamo il raggio di repulsione: meno coppie
+    // da valutare per il quadtree → tick più leggero.
+    const chargeDistanceMax = n >= 35
+      ? (isAllView ? 380 : 300)
+      : (isAllView ? 560 : 420);
+    const baseDims = nodeDims();
+    // Buffer di anti-sovrapposizione: garantisce uno spazio minimo tra i pianeti.
+    const collisionBuffer = 18;
+    const collR = Math.max(baseDims.thumbR + collisionBuffer, isAllView ? 42 : 36);
     const linkDist =
       ((135 + 920 / (density + 2.2)) / (1 + Math.log10(n + 3) * 0.1)) * 1.62;
-    const clusterStrength = isAllView ? 0.052 : 0.038;
-    const clusterStrengthRM = isAllView ? 0.068 : 0.048;
 
-    assignClusterOffsets(nodes, isAllView);
-    seedNodes(nodes, width, height, seedSpread);
+    // Raggio radiale per nodo: chi ha più tag in comune complessivi sta più vicino al centro.
+    const usableH = bottomBound > 0 ? bottomBound : height;
+    const maxRadial = Math.min(width, usableH) * 0.42;
+    const minRadial = Math.min(width, usableH) * 0.06;
+    function radialForNode(d) {
+      const r = Math.max(0, Math.min(1, Number(d?.overlapRatio) || 0));
+      return minRadial + (1 - r) * (maxRadial - minRadial);
+    }
+
+    // Posizione dei nodi "disattivati" (no tag selezionato): angolo in basso a sx,
+    // disposti in una griglietta compatta.
+    const inactiveOriginX = 70;
+    const inactiveOriginY = Math.max(140, bottomBound - 30);
+    const inactiveSpread = 36;
+    const inactiveCols = 6;
+
+    function assignInactiveTargets() {
+      const list = nodes
+        .filter((nd) => nd._inactive)
+        .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+      list.forEach((nd, i) => {
+        nd._inactiveTargetX = inactiveOriginX + (i % inactiveCols) * inactiveSpread;
+        nd._inactiveTargetY = inactiveOriginY - Math.floor(i / inactiveCols) * inactiveSpread;
+      });
+    }
+
+    assignInactiveTargets();
+    currentNodes = nodes;
+    applyInactiveLayoutFn = assignInactiveTargets;
+
+    seedNodes(
+      nodes,
+      width,
+      height,
+      seedSpread,
+      decorative ? height : bottomBound,
+      decorative ? 0 : GRAPH_Y_OFFSET,
+    );
 
     if (simulation) {
       simulation.on("end", null);
@@ -448,27 +442,26 @@ export function createGraphController(options) {
       .data(nodes, (d) => d.id)
       .join(
         (enter) => {
-          const { ringR, thumbR, thumbD, hitR } = nodeDims();
           const g = enter.append("g").attr("class", "graph-node");
           g.append("circle")
             .attr("class", "graph-node__halo")
-            .attr("r", ringR * 1.5)
+            .attr("r", (d) => nodeDims(d).ringR * 1.5)
             .attr("fill", "none")
             .attr("stroke", "rgba(210, 225, 255, 0.55)")
             .attr("stroke-width", 2.2)
             .attr("stroke-opacity", 0);
           g.append("circle")
             .attr("class", "graph-node__ring")
-            .attr("r", ringR)
+            .attr("r", (d) => nodeDims(d).ringR)
             .attr("fill", "none")
             .attr("stroke-width", 1.4)
             .attr("stroke-opacity", 0.72);
           g.append("image")
             .attr("class", "graph-node__thumb")
-            .attr("x", -thumbR)
-            .attr("y", -thumbR)
-            .attr("width", thumbD)
-            .attr("height", thumbD)
+            .attr("x", (d) => -nodeDims(d).thumbR)
+            .attr("y", (d) => -nodeDims(d).thumbR)
+            .attr("width", (d) => nodeDims(d).thumbD)
+            .attr("height", (d) => nodeDims(d).thumbD)
             .attr("preserveAspectRatio", "xMidYMid slice")
             .attr("clip-path", (d) => `url(#${thumbClipId(d)})`)
             .each(function (d) {
@@ -480,8 +473,8 @@ export function createGraphController(options) {
             .attr("display", (d) => (d.previewPath ? null : "none"));
           g.append("circle")
             .attr("class", "graph-node__hit")
-            .attr("r", hitR)
-            .attr("fill", "rgba(255,255,255,0.02)")
+            .attr("r", (d) => nodeDims(d).hitR)
+            .attr("fill", "transparent")
             .attr("stroke", "none")
             .attr("pointer-events", "all")
             .attr("tabindex", -1);
@@ -489,16 +482,15 @@ export function createGraphController(options) {
           return g;
         },
         (update) => {
-          const { ringR, thumbR, thumbD, hitR } = nodeDims();
-          update.select("circle.graph-node__halo").attr("r", ringR * 1.5);
-          update.select("circle.graph-node__ring").attr("r", ringR);
+          update.select("circle.graph-node__halo").attr("r", (d) => nodeDims(d).ringR * 1.5);
+          update.select("circle.graph-node__ring").attr("r", (d) => nodeDims(d).ringR);
           update
             .select("image.graph-node__thumb")
-            .attr("x", -thumbR)
-            .attr("y", -thumbR)
-            .attr("width", thumbD)
-            .attr("height", thumbD);
-          update.select("circle.graph-node__hit").attr("r", hitR);
+            .attr("x", (d) => -nodeDims(d).thumbR)
+            .attr("y", (d) => -nodeDims(d).thumbR)
+            .attr("width", (d) => nodeDims(d).thumbD)
+            .attr("height", (d) => nodeDims(d).thumbD);
+          update.select("circle.graph-node__hit").attr("r", (d) => nodeDims(d).hitR);
           update
             .select("image.graph-node__thumb")
             .each(function (d) {
@@ -517,6 +509,8 @@ export function createGraphController(options) {
     nodeSel.select("image.graph-node__thumb").on("error", function () {
       d3.select(this).attr("display", "none");
     });
+
+    nodeSel.classed("graph-node--inactive", (d) => !!d._inactive);
 
     function clearFocus() {
       if (pinnedNodeId) {
@@ -555,70 +549,83 @@ export function createGraphController(options) {
       applyFocus(n);
     };
 
-    nodeSel
-      .attr("tabindex", 0)
-      .attr("role", "button")
-      .attr("aria-label", (d) => `Progetto: ${d.titolo}`)
-      .on("mouseenter", (event, d) => {
-        if (!pinnedNodeId) applyFocus(d);
-        if (onNodeHover) onNodeHover(d, event);
-      })
-      .on("mousemove", (event, d) => {
-        if (onNodeHover) onNodeHover(d, event);
-      })
-      .on("mouseleave", () => {
-        clearFocus();
-        if (onNodeLeave) onNodeLeave();
-      })
-      .on("click", (event, d) => {
-        event.stopPropagation();
-        if (onNodeClick) onNodeClick(d, event);
-      })
-      .on("focus", (_event, d) => {
-        if (!pinnedNodeId) applyFocus(d);
-      })
-      .on("blur", () => {
-        clearFocus();
-      })
-      .on("keydown", (event, d) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
+    // Piccolo delay sull'hover: evita di attivare focus/preview quando il
+    // mouse passa solo di sfuggita su un progetto.
+    const HOVER_DELAY_MS = 180;
+    let hoverTimerId = null;
+    let hoverActiveId = null;
+
+    function cancelHoverTimer() {
+      if (hoverTimerId != null) {
+        clearTimeout(hoverTimerId);
+        hoverTimerId = null;
+      }
+    }
+
+    if (!decorative) {
+      nodeSel
+        .attr("tabindex", 0)
+        .attr("role", "button")
+        .attr("aria-label", (d) => `Progetto: ${d.titolo}`)
+        .on("mouseenter", (event, d) => {
+          cancelHoverTimer();
+          hoverTimerId = setTimeout(() => {
+            hoverTimerId = null;
+            hoverActiveId = d.id;
+            if (!pinnedNodeId) applyFocus(d);
+            if (onNodeHover) onNodeHover(d, event);
+          }, HOVER_DELAY_MS);
+        })
+        .on("mousemove", (event, d) => {
+          if (hoverActiveId === d.id && onNodeHover) onNodeHover(d, event);
+        })
+        .on("mouseleave", () => {
+          cancelHoverTimer();
+          const wasActive = hoverActiveId != null;
+          hoverActiveId = null;
+          if (wasActive) {
+            clearFocus();
+            if (onNodeLeave) onNodeLeave();
+          }
+        })
+        .on("click", (event, d) => {
+          event.stopPropagation();
           if (onNodeClick) onNodeClick(d, event);
-        }
-      });
+        })
+        .on("focus", (_event, d) => {
+          if (!pinnedNodeId) applyFocus(d);
+        })
+        .on("blur", () => {
+          clearFocus();
+        })
+        .on("keydown", (event, d) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            if (onNodeClick) onNodeClick(d, event);
+          }
+        });
+    }
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const minLinkDist = isAllView ? 138 : 108;
-    const maxLinkDist = isAllView ? 420 : 360;
+    // Link ancora più corti: cluster più compatti.
+    const minLinkDist = isAllView ? 52 : 44;
+    const maxLinkDist = isAllView ? 205 : 172;
 
     function linkDistance(d) {
-      const a = d.source;
-      const b = d.target;
-      const samePrimary = a?.primaryMacro && b?.primaryMacro && a.primaryMacro === b.primaryMacro;
       const common = Math.max(0, d.tagsCommon ?? d.tagShared ?? 0);
-
-      const base = linkDist + 56 / Math.max(0.9, d.weight);
-      const primaryK = samePrimary ? 0.72 : 1.28;
-      const macroK = 1 / (1 + 0.06 * (d.macroShared || 0));
-      const farDist = Math.min(maxLinkDist, base * primaryK * macroK);
-
-      const pull = 1 - Math.exp(-0.78 * common);
-      const dist = minLinkDist + (farDist - minLinkDist) * (1 - pull);
-      if (!samePrimary && common <= 1) {
-        return Math.max(dist, minLinkDist + (maxLinkDist - minLinkDist) * 0.78);
-      }
-      return dist;
+      // Più tag in comune → distanza più breve (avvicinamento).
+      const pull = 1 - Math.exp(-0.65 * common);
+      return minLinkDist + (maxLinkDist - minLinkDist) * (1 - pull);
     }
 
     function linkStrength(d) {
       const common = Math.max(0, d.tagsCommon ?? d.tagShared ?? 0);
       const pull = 1 - Math.exp(-0.55 * common);
-      const base = reducedMotion ? 0.4 : 0.52;
-      return Math.min(0.76, base + 0.32 * pull);
+      const base = reducedMotion ? 0.32 : 0.52;
+      return Math.min(0.82, base + 0.42 * pull);
     }
 
     function settleSimulation() {
-      finalizeDeAlign(nodes, linkObjs);
       ticked();
       for (const n of nodes) {
         n.vx = 0;
@@ -631,45 +638,124 @@ export function createGraphController(options) {
       ticked();
     }
 
+    const centerX = width / 2;
+    // Il centro verticale considera l'area utile (sopra la filter-bar) e
+    // NON metà schermo: altrimenti, con tag su più righe, i nodi attivi
+    // finiscono visivamente nella metà inferiore. In modalità filtrata
+    // (o decorativa) azzeriamo l'offset così è esattamente al centro
+    // visivo dell'area.
+    const centerY = decorative
+      ? height / 2
+      : bottomBound / 2 + (activeTagFilter ? 0 : GRAPH_Y_OFFSET);
+    // Centro "filtro": punto verso cui convergono i progetti attivi.
+    // Lo bilanciamo verso destra del centro pure per allontanarli dal
+    // cluster degli inactive nell'angolo basso-sx.
+    const filterCenterX = centerX + width * 0.14;
+    const filterCenterY = centerY;
+
     simulation = d3
       .forceSimulation(nodes)
       .force(
         "link",
-        d3.forceLink(linkObjs).id((d) => d.id).distance(linkDistance).strength(linkStrength)
+        d3
+          .forceLink(linkObjs)
+          .id((d) => d.id)
+          .distance(linkDistance)
+          // Quando c'è un filtro attivo, i link non devono "spingere": i nodi
+          // attivi si organizzano solo al centro tramite le forze X/Y.
+          .strength((l) =>
+            activeTagFilter ? 0 : linkStrength(l),
+          )
       )
       .force(
         "charge",
         d3
           .forceManyBody()
-          .strength(reducedMotion ? chargeBase * 0.72 : chargeBase)
+          // Nessuna repulsione dagli inactive verso gli attivi (e viceversa
+          // quasi trascurabile fra inactive). Così i pochi attivi non vengono
+          // "spinti via" dai tanti nodi raggruppati in basso.
+          .strength((d) => {
+            if (d._inactive) return -20;
+            const base = reducedMotion ? chargeBase * 0.72 : chargeBase;
+            return activeTagFilter ? base * 0.45 : base;
+          })
           .distanceMax(chargeDistanceMax)
       )
-      .force("center", d3.forceCenter(width / 2, height / 2 + GRAPH_Y_OFFSET).strength(0.04))
-      .force("collision", d3.forceCollide().radius(collR).strength(0.9).iterations(2))
       .force(
-        "clusterX",
+        "collision",
         d3
-          .forceX((d) => macroTarget(d, width, height).x)
-          .strength(reducedMotion ? clusterStrengthRM : clusterStrength)
+          .forceCollide()
+          .radius((d) => {
+            if (d._inactive) return nodeDims(d).thumbR + 4;
+            return Math.max(collR, nodeDims(d).thumbR + collisionBuffer);
+          })
+          .strength(0.92)
+          // 1 iterazione invece di 2: con dataset medio-grandi (>=35 nodi)
+          // ogni iterazione costa O(n) di lavoro extra al tick.
+          .iterations(n >= 35 ? 1 : 2)
       )
       .force(
-        "clusterY",
+        "radial",
         d3
-          .forceY((d) => macroTarget(d, width, height).y)
-          .strength(reducedMotion ? clusterStrengthRM : clusterStrength)
+          .forceRadial(
+            (d) => (d._inactive ? 0 : radialForNode(d)),
+            centerX,
+            centerY,
+          )
+          // In vista filtrata disattivo la forza radiale: i nodi attivi
+          // devono raggrupparsi attorno al centro, non distribuirsi su un
+          // anello (era questo a "spingerli verso l'alto").
+          .strength((d) =>
+            d._inactive ? 0 : activeTagFilter ? 0 : reducedMotion ? 0.18 : 0.14,
+          )
       )
       .force(
-        "dealign",
-        forceAvoidAlignedLinks({
-          angleDeg: 8,
-          strength: reducedMotion ? 0.12 : 0.2,
-          maxNudge: reducedMotion ? 1.1 : 1.6,
-        }).links(linkObjs)
+        "activeX",
+        d3
+          .forceX(filterCenterX)
+          .strength((d) => (!d._inactive && activeTagFilter ? 0.38 : 0))
+      )
+      .force(
+        "activeY",
+        d3
+          .forceY(filterCenterY)
+          .strength((d) => (!d._inactive && activeTagFilter ? 0.38 : 0))
+      )
+      .force(
+        "inactiveX",
+        d3
+          .forceX((d) => (d._inactive ? d._inactiveTargetX ?? inactiveOriginX : 0))
+          .strength((d) => (d._inactive ? 0.42 : 0))
+      )
+      .force(
+        "inactiveY",
+        d3
+          .forceY((d) => (d._inactive ? d._inactiveTargetY ?? inactiveOriginY : 0))
+          .strength((d) => (d._inactive ? 0.42 : 0))
+      )
+      .force(
+        "center",
+        d3
+          .forceCenter(centerX, centerY)
+          // Disattivato in modalità filtrata (le forze activeX/Y già
+          // gestiscono il centraggio dei nodi attivi).
+          .strength(activeTagFilter ? 0 : 0.025),
       )
       .alpha(reducedMotion ? 0.58 : 0.78)
-      .alphaDecay(reducedMotion ? 0.28 : 0.062)
-      .alphaMin(0.001)
-      .velocityDecay(reducedMotion ? 0.78 : 0.54)
+      // alphaDecay più alto → la simulazione si calma prima e smette di
+      // "tremolare" attorno alle posizioni di equilibrio.
+      // Su dataset medio-grandi (e sul mini-grafo decorativo della hero)
+      // alziamo l'alphaDecay: chiude prima la coda di tick a basso valore
+      // informativo che è il principale responsabile del lag percepito.
+      .alphaDecay(
+        reducedMotion ? 0.28 : decorative ? 0.14 : n >= 35 ? 0.105 : 0.085,
+      )
+      // alphaMin più alto → niente coda di tick a energia quasi-zero che
+      // producono micro-jitter visibili. Su decorativo/dataset medio-grandi
+      // alziamo ancora la soglia per chiudere prima la simulazione.
+      .alphaMin(decorative ? 0.03 : n >= 35 ? 0.02 : 0.012)
+      // velocityDecay più alto → meno overshoot/oscillazioni residue.
+      .velocityDecay(reducedMotion ? 0.78 : 0.62)
       .on("tick", onSimTick)
       .on("end", settleSimulation);
 
@@ -681,11 +767,45 @@ export function createGraphController(options) {
   function resize() {
     width = svg.clientWidth || window.innerWidth;
     height = svg.clientHeight || window.innerHeight;
+    bottomBound = computeBottomBound();
     applyScale(viewScale);
     if (simulation) {
-      simulation.force("center", d3.forceCenter(width / 2, height / 2 + GRAPH_Y_OFFSET));
+      simulation.force("center", d3.forceCenter(width / 2, bottomBound / 2 + GRAPH_Y_OFFSET));
       simulation.velocityDecay(0.58).alpha(0.22).restart();
     }
+  }
+
+  function snapshotAllProjectsLayoutIfNeeded(prevFilter, nextFilter) {
+    // Salviamo la disposizione solo quando usciamo da ALL PROJECTS verso un filtro.
+    if (prevFilter == null && nextFilter != null) {
+      const snap = new Map();
+      for (const n of currentNodes) {
+        if (!n?.id) continue;
+        if (!Number.isFinite(n.x) || !Number.isFinite(n.y)) continue;
+        snap.set(String(n.id), { x: n.x, y: n.y });
+      }
+      allProjectsLayoutSnapshot = snap.size ? snap : null;
+    }
+  }
+
+  function restoreAllProjectsLayoutIfAvailable() {
+    if (!allProjectsLayoutSnapshot) return false;
+    for (const n of currentNodes) {
+      const id = n?.id != null ? String(n.id) : "";
+      if (!id) continue;
+      const p = allProjectsLayoutSnapshot.get(id);
+      if (!p) continue;
+      n.x = p.x;
+      n.y = p.y;
+      if (pinnedNodeId !== id) {
+        n.fx = null;
+        n.fy = null;
+      }
+      n.vx = 0;
+      n.vy = 0;
+    }
+    ticked();
+    return true;
   }
 
   function centerOnNode(id, opts = {}) {
@@ -763,8 +883,89 @@ export function createGraphController(options) {
     },
     setFilter(tag) {
       const t = tag && String(tag).trim() ? String(tag).trim() : null;
+      if (t === activeTagFilter) return;
+      const prevFilter = activeTagFilter;
+      snapshotAllProjectsLayoutIfNeeded(prevFilter, t);
       activeTagFilter = t;
-      rebuild();
+
+      // Se la simulazione non esiste ancora (primo paint), fall back al rebuild.
+      if (!simulation || currentNodes.length === 0) {
+        rebuild();
+        return;
+      }
+
+      // Aggiorna i flag `_inactive` sui nodi correnti.
+      for (const n of currentNodes) {
+        n._inactive = activeTagFilter
+          ? !(n.tagsNorm || []).includes(activeTagFilter)
+          : false;
+      }
+      // Ricomputa i target dell'angolo basso-sx per gli inactive.
+      applyInactiveLayoutFn();
+
+      // Aggiorna i parametri delle forze sensibili al filtro.
+      simulation.force("center")?.strength(activeTagFilter ? 0 : 0.025);
+
+      // IMPORTANTE: d3-force cacha i target/strength delle forze X/Y/Collide/...
+      // alla chiamata di `initialize()`. Avendo cambiato `_inactive` e i
+      // `_inactiveTargetX/Y` sui nodi, dobbiamo forzare il re-initialize di
+      // tutte le forze, altrimenti useranno i vecchi valori (e i nodi
+      // "disattivati" non andrebbero nell'angolo basso-sx).
+      simulation.nodes(currentNodes);
+
+      // Aggiorna le dimensioni dei nodi con una transizione (rimpicciolimento/
+      // ingrandimento fluido).
+      if (nodeSel && !nodeSel.empty()) {
+        const tr = nodeSel.transition().duration(FILTER_TRANSITION_MS).ease(d3.easeCubicInOut);
+        tr.select("circle.graph-node__halo").attr("r", (d) => nodeDims(d).ringR * 1.5);
+        tr.select("circle.graph-node__ring").attr("r", (d) => nodeDims(d).ringR);
+        tr.select("image.graph-node__thumb")
+          .attr("x", (d) => -nodeDims(d).thumbR)
+          .attr("y", (d) => -nodeDims(d).thumbR)
+          .attr("width", (d) => nodeDims(d).thumbD)
+          .attr("height", (d) => nodeDims(d).thumbD);
+        tr.select("circle.graph-node__hit").attr("r", (d) => nodeDims(d).hitR);
+        nodeSel.classed("graph-node--inactive", (d) => !!d._inactive);
+      }
+
+      // Riavvia la simulazione con abbastanza energia da coprire anche la
+      // grande distanza "angolo basso-sx → centro" quando si rimuove il
+      // filtro. Manteniamo il velocityDecay di default così non rallenta
+      // troppo a metà strada.
+      const goingToAll = activeTagFilter === null;
+      if (goingToAll) {
+        // Ripristina la disposizione originale di ALL PROJECTS, così tornando
+        // da un filtro la posizione non cambia “a caso”.
+        const restored = restoreAllProjectsLayoutIfAvailable();
+        // Reset delle velocità: tutti i nodi devono ridistribuirsi liberamente
+        // attorno al centro radiale, senza il momentum/cluster basso-sx
+        // accumulato durante la modalità filtrata.
+        if (!restored) {
+          for (const n of currentNodes) {
+            n.vx = 0;
+            n.vy = 0;
+          }
+        }
+        // Decay più lento → più tick disponibili per ridistribuire i nodi
+        // sull'anello radiale. Su dataset medio-grandi non possiamo
+        // permetterci un decay troppo basso (troppi tick costosi): scaliamo
+        // i valori.
+        const prevDecay = simulation.alphaDecay();
+        const bigSet = currentNodes.length >= 35;
+        const tempDecay = bigSet ? 0.072 : 0.045;
+        const restoreMs = bigSet ? 1100 : 1600;
+        // Se abbiamo ripristinato posizioni, basta un kick leggero.
+        simulation
+          .alpha(restored ? 0.32 : 1)
+          .alphaDecay(tempDecay)
+          .alphaTarget(0)
+          .restart();
+        setTimeout(() => {
+          if (simulation) simulation.alphaDecay(prevDecay);
+        }, restoreMs);
+      } else {
+        simulation.alpha(0.85).alphaTarget(0).restart();
+      }
     },
     getActiveFilter() {
       return activeTagFilter;
@@ -807,15 +1008,15 @@ export function createGraphController(options) {
       const nk = nearestNodeScaleStep(k);
       nodeScale = nk;
       // aggiorna subito dimensioni (senza ricostruire tutta la simulazione)
-      const { ringR, thumbR, thumbD, hitR } = nodeDims();
-      gNodes.selectAll("circle.graph-node__ring").attr("r", ringR);
+      gNodes.selectAll("circle.graph-node__halo").attr("r", (d) => nodeDims(d).ringR * 1.5);
+      gNodes.selectAll("circle.graph-node__ring").attr("r", (d) => nodeDims(d).ringR);
       gNodes
         .selectAll("image.graph-node__thumb")
-        .attr("x", -thumbR)
-        .attr("y", -thumbR)
-        .attr("width", thumbD)
-        .attr("height", thumbD);
-      gNodes.selectAll("circle.graph-node__hit").attr("r", hitR);
+        .attr("x", (d) => -nodeDims(d).thumbR)
+        .attr("y", (d) => -nodeDims(d).thumbR)
+        .attr("width", (d) => nodeDims(d).thumbD)
+        .attr("height", (d) => nodeDims(d).thumbD);
+      gNodes.selectAll("circle.graph-node__hit").attr("r", (d) => nodeDims(d).hitR);
     },
   };
 }

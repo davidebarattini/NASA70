@@ -9,6 +9,8 @@
   --panel: rgba(12, 14, 22, 0.92);
   --panel-border: rgba(255, 255, 255, 0.06);
   --accent: #7eb8ff;
+  --nasa-red: #fc3d21;
+  --nasa-red-hover: #ff5a40;
   --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: "Helvetica Neue", Helvetica, Arial, sans-serif;
   --explore-inset: clamp(1rem, 2.8vw, 1.65rem);
@@ -269,9 +271,11 @@ body {
 
 .graph-svg .link {
   fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: opacity var(--transition), stroke var(--transition), stroke-width var(--transition);
+  stroke: none !important;
+  stroke-width: 0 !important;
+  stroke-opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden;
 }
 
 .graph-svg .link--strength {
@@ -312,6 +316,24 @@ body {
 
 .graph-node--dim {
   opacity: 0.14;
+}
+
+.graph-node--inactive {
+  opacity: 0.32;
+  cursor: default;
+  transition: opacity 0.4s ease;
+}
+
+.graph-node--inactive .graph-node__ring {
+  stroke-opacity: 0.12 !important;
+}
+
+.graph-node--inactive .graph-node__thumb {
+  opacity: 0.7;
+}
+
+.graph-node--inactive:hover {
+  opacity: 0.55;
 }
 
 .graph-node--neighbor {
@@ -365,6 +387,8 @@ body {
 
 .graph-node__hit {
   pointer-events: all;
+  fill: transparent !important;
+  stroke: none !important;
   cursor: grab;
 }
 
@@ -402,6 +426,7 @@ body {
 }
 
 .legend {
+  display: none !important;
   position: fixed;
   top: 4.25rem;
   right: var(--explore-inset, clamp(1rem, 2.8vw, 1.65rem));
@@ -1126,8 +1151,9 @@ body {
     padding: 0.3rem var(--nav-link-pad-inline);
   }
 
+  /* Mobile: togli il bottone in alto a destra */
   .header__menuButton {
-    display: inline-flex;
+    display: none;
   }
 
   .header-meta {
@@ -1340,6 +1366,34 @@ body {
   scrollbar-color: rgba(232, 234, 239, 0.22) transparent;
 }
 
+.preview-panel__lowerScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-top: 0.15rem;
+  padding-right: 0.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(232, 234, 239, 0.22) transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.preview-panel__lowerScroll::-webkit-scrollbar {
+  width: 3px;
+}
+
+.preview-panel__lowerScroll::-webkit-scrollbar-thumb {
+  background: rgba(232, 234, 239, 0.24);
+  border-radius: 99px;
+}
+
+.preview-panel__lowerScroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .preview-panel__bodyScroll::-webkit-scrollbar {
   width: 3px;
 }
@@ -1411,6 +1465,12 @@ body {
   text-transform: uppercase;
   color: rgba(232, 234, 239, 0.55);
   margin-right: 0.15rem;
+}
+
+/* Tag in comune con almeno un altro progetto: in grassetto + colore pieno. */
+.preview-panel__tagShared {
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .preview-panel__tagsEmpty {
@@ -1489,10 +1549,36 @@ body {
 
   .preview-panel {
     padding: 1rem 1rem 1.5rem;
+    gap: 0.55rem;
   }
 
   .preview-panel__heroWrap {
     aspect-ratio: 16 / 9;
+  }
+
+  .preview-panel__title {
+    -webkit-line-clamp: 2;
+  }
+
+  .preview-panel__author {
+    margin-top: -0.15rem;
+  }
+
+  .preview-panel__tags,
+  .preview-panel__tagsEmpty {
+    margin-top: 0.35rem;
+    margin-bottom: 0;
+  }
+
+  /* Su mobile: scrolla tutta la parte sotto (tag + descrizione + CTA). */
+  .preview-panel__lowerScroll {
+    padding-right: 0.35rem;
+    gap: 0.6rem;
+  }
+
+  .preview-panel__cta {
+    margin-top: 0.9rem;
+    padding-bottom: 0.35rem;
   }
 }
 
@@ -1555,6 +1641,247 @@ body {
   letter-spacing: -0.03em;
   color: rgba(232, 234, 239, 0.95);
   text-align: left;
+}
+
+.explore-page-subtitle {
+  grid-column: 1;
+  max-width: 56ch;
+  margin: 0.9rem 0 0;
+  padding-right: 1rem;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 400;
+  line-height: 1.55;
+  letter-spacing: 0;
+  color: rgba(232, 234, 239, 0.62);
+}
+
+/* ---------- Hero NASA-style (PROJECTS) ---------- */
+.hero-nasa {
+  /* Occupa l'intera viewport visibile (sotto l'header fisso) così
+     entrando si vede SOLO la hero, e la lista è "below the fold". */
+  min-height: calc(100vh - 5.5rem);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(1.5rem, 4vw, 4rem);
+  padding: 1rem 0 2rem;
+  max-width: none;
+}
+
+.hero-nasa__text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.hero-nasa__visual {
+  position: relative;
+  min-width: 0;
+  align-self: center;
+  justify-self: start;
+  width: 100%;
+  height: min(70vh, 36rem);
+  /* Sposta leggermente i nodi verso sinistra dentro la colonna destra. */
+  transform: translateX(-3rem);
+  border-radius: 1rem;
+  overflow: visible;
+  user-select: none;
+}
+
+.hero-graph-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Modalità decorativa del grafo (hero PROJECTS): disabilitiamo ogni
+   trasformazione visiva di hover/focus, lasciamo solo il drag dei nodi. */
+.graph-svg--decorative .graph-node {
+  cursor: grab;
+}
+.graph-svg--decorative .graph-node:active {
+  cursor: grabbing;
+}
+.graph-svg--decorative .graph-node:hover .graph-node__ring,
+.graph-svg--decorative .graph-node:focus-visible .graph-node__ring {
+  stroke: rgba(232, 234, 239, 0.35) !important;
+  stroke-width: 1px !important;
+  stroke-opacity: 0.45 !important;
+}
+.graph-svg--decorative .graph-node:hover .graph-node__thumb,
+.graph-svg--decorative .graph-node:focus-visible .graph-node__thumb {
+  filter: none !important;
+  opacity: 1 !important;
+}
+.graph-svg--decorative .graph-node:focus,
+.graph-svg--decorative .graph-node:focus-visible {
+  outline: none !important;
+}
+.graph-svg--decorative .graph-node--neighbor,
+.graph-svg--decorative .graph-node--dim,
+.graph-svg--decorative .graph-node--pinned {
+  /* Le classi di "focus" non vengono applicate perché i listener sono
+     disattivati, ma per sicurezza neutralizziamo anche gli stili. */
+  opacity: 1 !important;
+}
+
+/* Gerarchia: kicker (XS) → titolo (XXL) → lead (M, bold) → body (S, regular) */
+.hero-nasa__kicker {
+  margin: 0 0 1.1rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--nasa-red);
+}
+
+.hero-nasa__title {
+  margin: 0 0 1.75rem;
+  font-family: var(--font-sans);
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0;
+  color: rgba(232, 234, 239, 0.98);
+}
+
+.hero-nasa__lead {
+  max-width: 52ch;
+  margin: 0 0 1.15rem;
+  font-family: var(--font-sans);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.005em;
+  color: rgba(232, 234, 239, 0.95);
+}
+
+.hero-nasa__body {
+  max-width: 62ch;
+  margin: 0 0 2.25rem;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.6;
+  color: rgba(232, 234, 239, 0.62);
+}
+
+.hero-nasa__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.4rem 0;
+  font-family: var(--font-sans);
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: rgba(232, 234, 239, 0.98);
+  text-decoration: none;
+  transition: color 0.18s ease, transform 0.18s ease;
+}
+
+.hero-nasa__ctaLabel {
+  position: relative;
+  display: inline-block;
+}
+
+.hero-nasa__ctaLabel::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.25s ease;
+}
+
+.hero-nasa__cta:hover .hero-nasa__ctaLabel::after,
+.hero-nasa__cta:focus-visible .hero-nasa__ctaLabel::after {
+  transform: scaleX(1);
+}
+
+.hero-nasa__ctaArrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 999px;
+  background: var(--nasa-red);
+  color: #fff;
+  transition: background 0.18s ease, transform 0.18s ease;
+  box-shadow: 0 6px 18px rgba(252, 61, 33, 0.32);
+}
+
+.hero-nasa__ctaArrow svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.hero-nasa__cta:hover .hero-nasa__ctaArrow,
+.hero-nasa__cta:focus-visible .hero-nasa__ctaArrow {
+  background: var(--nasa-red-hover);
+  transform: translateX(3px);
+}
+
+.hero-nasa__cta:focus-visible {
+  outline: 2px solid rgba(252, 61, 33, 0.55);
+  outline-offset: 6px;
+  border-radius: 4px;
+}
+
+/* Heading della sezione "Project List:" sotto la hero — stessa scala del lead. */
+.projects-section__title {
+  margin: 0 0 1.5rem;
+  padding: 0;
+  font-family: var(--font-sans);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.005em;
+  color: rgba(232, 234, 239, 0.95);
+}
+
+.projects-section__titleColon {
+  color: inherit;
+}
+
+@media (max-width: 980px) {
+  .hero-nasa {
+    grid-template-columns: 1fr;
+  }
+  .hero-nasa__visual {
+    /* Sotto i 980px nascondiamo il grafo decorativo per dare spazio
+       al testo (occupa schermo intero). */
+    display: none;
+  }
+}
+
+@media (max-width: 820px) {
+  .hero-nasa {
+    min-height: calc(100dvh - 4.85rem);
+    padding: 1rem 0 1.5rem;
+  }
+  .hero-nasa__title {
+    font-size: clamp(2rem, 8.5vw, 2.6rem);
+  }
+  .hero-nasa__cta {
+    font-size: 1.2rem;
+  }
+  .hero-nasa__ctaArrow {
+    width: 2.1rem;
+    height: 2.1rem;
+  }
+  .projects-section__title {
+    margin-bottom: 1.1rem;
+  }
 }
 
 .explore-toolbar__sortRow {

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NASA70 — Projects</title>
-  <link rel="stylesheet" href="css/main.css?v=projects-desc-column">
+  <link rel="stylesheet" href="css/main.css?v=data-extended-2026-05-28">
 </head>
 <body class="page-explore">
   <header class="site-header">
@@ -21,12 +21,41 @@
 
   <main class="explore-main" id="explore-main">
     <div class="explore-main__inner">
+      <section class="hero-nasa" aria-labelledby="hero-title">
+        <div class="hero-nasa__text">
+          <h1 class="hero-nasa__title" id="hero-title">70th Anniversary<br>Project Archive</h1>
+          <p class="hero-nasa__lead">An interactive collection of projects created to celebrate 70 years of NASA.</p>
+          <p class="hero-nasa__body">The archive allows users to explore projects through information, tags, and thematic relationships, transforming a simple collection of content into a system of connections between ideas, missions, and visual languages.</p>
+          <a class="hero-nasa__cta" href="explore.html">
+            <span class="hero-nasa__ctaLabel">Explore Projects</span>
+            <span class="hero-nasa__ctaArrow" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" focusable="false"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+          </a>
+        </div>
+        <div class="hero-nasa__visual" aria-hidden="true">
+          <svg id="hero-graph-svg" class="graph-svg hero-graph-svg" role="presentation" focusable="false">
+            <defs>
+              <filter id="hero-node-glow" x="-80%" y="-80%" width="260%" height="260%">
+                <feGaussianBlur stdDeviation="1.8" result="b"/>
+                <feMerge>
+                  <feMergeNode in="b"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+            <g id="zoom-layer">
+              <g id="links-layer"></g>
+              <g id="nodes-layer"></g>
+              <g id="links-highlight-layer"></g>
+            </g>
+          </svg>
+        </div>
+      </section>
       <p class="explore-main__status mono" id="explore-status" hidden>Caricamento archivio…</p>
       <div class="explore-toolbar" id="explore-toolbar" hidden>
         <div class="explore-toolbar__col">
-          <div class="explore-toolbar__row">
-            <h1 class="explore-page-title">70th Anniversary Project Archive</h1>
-          </div>
+          <h2 class="projects-section__title">Project List<span class="projects-section__titleColon">:</span></h2>
           <div class="explore-toolbar__sortRow">
             <div class="explore-sortFilter" id="explore-sort-filter">
               <span class="explore-toolbar__label mono">Sort by:</span>

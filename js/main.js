@@ -105,7 +105,9 @@ async function main() {
   if (!res.ok) throw new Error(`Impossibile caricare data.json (${res.status})`);
   const raw = await res.json();
   const allNodesModel = buildNetwork(raw);
-  let fullModel = buildNetwork(raw, { topTagsOnly: true });
+  // Mostriamo tutti i progetti: la prossimità (e dimensione) è data dai tag in comune,
+  // non più dalla appartenenza ai top-tag.
+  let fullModel = allNodesModel;
 
   if (legendEl) setupLegend(legendEl, fullModel.legend);
 
@@ -132,6 +134,16 @@ async function main() {
     if (!lockedPreviewId) previewPane?.classList.remove("top10-preview-pane--active");
   }
 
+  function tagsOfLockedProject() {
+    if (!lockedPreviewId) return null;
+    const sel = fullModel.nodes.find((n) => n.id === lockedPreviewId);
+    if (!sel) return null;
+    const norms = (sel.tagsNorm || [])
+      .map((t) => String(t).trim().toLowerCase())
+      .filter(Boolean);
+    return norms.length ? new Set(norms) : null;
+  }
+
   function showPreview(node, { locked = false } = {}) {
     if (!previewInner || !node) return;
     const nid = node.id ?? null;
@@ -139,7 +151,13 @@ async function main() {
       lockedPreviewId = nid;
     }
     hoverPreviewId = nid;
-    previewInner.innerHTML = renderProjectPreviewHtml(node);
+    // Mostra in grassetto i tag in comune col progetto selezionato (locked).
+    // Nessun highlight se non c'è ancora un progetto selezionato, o se il
+    // nodo che stiamo visualizzando È quello selezionato.
+    const lockedTags = tagsOfLockedProject();
+    const highlightTags =
+      lockedTags && lockedPreviewId && nid !== lockedPreviewId ? lockedTags : null;
+    previewInner.innerHTML = renderProjectPreviewHtml(node, { highlightTags });
     previewPane?.classList.add("top10-preview-pane--active");
   }
 
@@ -168,6 +186,7 @@ async function main() {
     fullModel,
     onNodeHover: (node) => {
       if (isMobile()) return;
+      if (node?._inactive) return; // nodi "spenti": niente preview
       if (node?.id && hoverPreviewId === node.id) return;
       showPreview(node);
     },
@@ -181,6 +200,7 @@ async function main() {
       showPreviewEmpty();
     },
     onNodeClick: (node) => {
+      if (node?._inactive) return; // nodi "spenti": non si possono selezionare
       showPreview(node, { locked: true });
       graph.pinNode?.(node.id);
     },

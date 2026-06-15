@@ -1,6 +1,7 @@
 import { buildNetwork, getPreviewHref } from "./graphData.js";
 import { formatDate } from "./ui.js";
 import { initHeaderScroll } from "./headerScroll.js";
+import { createGraphController } from "./graph.js";
 
 initHeaderScroll();
 
@@ -218,11 +219,38 @@ async function main() {
       allNodes: model.nodes,
     });
     statusEl.hidden = true;
+    setupHeroDecorativeGraph(model);
   } catch (err) {
     console.error(err);
     statusEl.textContent = "Errore caricamento archivio.";
     statusEl.hidden = false;
   }
+}
+
+/**
+ * Inizializza il grafo decorativo nella hero (PROJECTS).
+ * Non interattivo: nessun hover/click callback, e l'SVG ha
+ * `pointer-events: none` via CSS, quindi è solo un'anteprima visiva
+ * dello stesso layout della pagina Explore.
+ */
+function setupHeroDecorativeGraph(model) {
+  const svg = document.getElementById("hero-graph-svg");
+  if (!svg || !model) return;
+  // Mostra tutti i progetti anche nella hero (PROJECTS).
+  const decorModel = model;
+  // Attendi il prossimo paint così l'SVG ha dimensioni reali (`clientWidth/Height`).
+  requestAnimationFrame(() => {
+    try {
+      const graph = createGraphController({
+        svg,
+        fullModel: decorModel,
+        decorative: true,
+      });
+      graph.rebuild();
+    } catch (err) {
+      console.warn("Hero decorative graph init failed:", err);
+    }
+  });
 }
 
 main();
