@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NASA70 — Project List</title>
+  <link rel="stylesheet" href="css/main.css?v=image-open">
+</head>
+<body class="page-explore">
+  <header class="site-header site-header--scheda">
+    <div class="site-header__start">
+      <a class="header__back" href="index.html" aria-label="Torna alla Home">
+        <svg viewBox="0 0 24 24" fill="none" focusable="false" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <nav class="site-nav" aria-label="Sezioni">
+        <a class="site-nav__link site-nav__link--active" href="projects.html" aria-current="page">Project List</a>
+        <a class="site-nav__link" href="explore.html">Connections</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="explore-main" id="explore-main">
+    <div class="explore-main__inner">
+      <p class="explore-main__status mono" id="explore-status" hidden>Caricamento archivio…</p>
+      <div class="explore-toolbar" id="explore-toolbar" hidden>
+        <div class="explore-toolbar__col">
+          <div class="explore-toolbar__headRow">
+            <h2 class="projects-section__title">Project List<span class="projects-section__titleColon">:</span></h2>
+            <div class="explore-search">
+              <label class="explore-search__label" for="explore-search-input">
+                <span class="explore-search__control">
+                  <input
+                    type="search"
+                    class="explore-search__input"
+                    id="explore-search-input"
+                    placeholder=" "
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="Cerca per nome o autore"
+                  >
+                  <span class="explore-search__hint" aria-hidden="true">Cerca</span>
+                  <svg class="explore-search__icon" viewBox="0 0 24 24" fill="none" focusable="false" aria-hidden="true">
+                    <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.6"/>
+                    <path d="M16 16l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                  </svg>
+                </span>
+              </label>
+            </div>
+          </div>
+          <div class="explore-toolbar__sortRow">
+            <div class="explore-sortFilter" id="explore-sort-filter">
+              <span class="explore-toolbar__label mono">Sort by:</span>
+              <button
+                type="button"
+                class="explore-sortFilter__trigger mono"
+                id="explore-sort-trigger"
+                aria-expanded="false"
+                aria-controls="explore-sort-panel"
+              >
+                <span class="explore-sortFilter__value" id="explore-sort-value"></span>
+                <span class="explore-sortFilter__chev" aria-hidden="true"></span>
+              </button>
+            </div>
+          </div>
+          <div class="explore-sortFilter__panel" id="explore-sort-panel">
+            <div class="explore-sortFilter__panelInner">
+              <ul class="explore-sortFilter__list" id="explore-sort-list" role="listbox" aria-label="Ordina progetti"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ul class="explore-list" id="explore-list" aria-label="Elenco progetti"></ul>
+    </div>
+  </main>
+
+  <script type="module" src="js/explore.js?v=image-open"></script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 import { buildNetwork, getPreviewHref } from "./graphData.js";
+import { loadProjectsRaw } from "./loadData.js";
 import { formatDate } from "./ui.js";
 import { initHeaderScroll } from "./headerScroll.js";
 import { createGraphController } from "./graph.js";
@@ -87,23 +88,16 @@ function renderExploreList(nodes, sortBy) {
     .map((node) => {
       const paths = Array.isArray(node.previewPaths) ? node.previewPaths : [];
       const primary = paths[0] ? getPreviewHref(paths[0]) : "";
-      const secondary = paths[1] ? getPreviewHref(paths[1]) : primary;
-      const hasSecond = paths.length > 1;
       const published = formatPublishDate(node.data) || formatDate(node.data);
 
       const mediaHtml = primary
-        ? `<figure class="explore-item__media">
+        ? `<button type="button" class="explore-item__media" aria-expanded="false" aria-label="Apri dettagli di ${escapeAttr(node.titolo || "progetto")}">
             <img class="explore-item__img explore-item__img--primary" src="${escapeAttr(primary)}" alt="" loading="lazy" width="220" height="150">
-            ${
-              hasSecond
-                ? `<img class="explore-item__img explore-item__img--secondary" src="${escapeAttr(secondary)}" alt="" loading="lazy" width="220" height="150" aria-hidden="true">`
-                : ""
-            }
-          </figure>`
-        : `<figure class="explore-item__media explore-item__media--empty" aria-hidden="true"></figure>`;
+          </button>`
+        : `<button type="button" class="explore-item__media explore-item__media--empty" aria-expanded="false" aria-label="Apri dettagli di ${escapeAttr(node.titolo || "progetto")}"></button>`;
 
       return `
-        <li class="explore-item${hasSecond ? " explore-item--dual" : ""}">
+        <li class="explore-item" id="proj-${escapeAttr(node.id)}">
           <div class="explore-item__row">
             <h2 class="explore-item__title">${escapeHtml(node.titolo || "Senza titolo")}</h2>
             ${node.autore ? `<p class="explore-item__author">${escapeHtml(node.autore)}</p>` : '<p class="explore-item__author explore-item__author--empty" aria-hidden="true">&nbsp;</p>'}
@@ -116,7 +110,7 @@ function renderExploreList(nodes, sortBy) {
               <div class="explore-item__actions">
                 ${
                   node.url
-                    ? `<a class="explore-item__link mono" href="${escapeAttr(node.url)}" target="_blank" rel="noopener noreferrer">Apri progetto</a>`
+                    ? `<a class="explore-item__link explore-item__link--primary mono" href="${escapeAttr(node.url)}" target="_blank" rel="noopener noreferrer">Apri progetto</a>`
                     : ""
                 }
                 <a class="explore-item__link mono" href="explore.html?focus=${escapeAttr(node.id)}">Mostra collegamenti</a>
@@ -128,7 +122,49 @@ function renderExploreList(nodes, sortBy) {
     .join("");
 }
 
-function setupSortFilter({ toolbarEl, triggerEl, valueEl, panelEl, listboxEl, listEl, allNodes }) {
+function setupListItemToggle(listEl) {
+  if (!listEl) return;
+
+  listEl.addEventListener("click", (e) => {
+    const media = e.target.closest(".explore-item__media");
+    if (!media || !listEl.contains(media)) return;
+
+    const item = media.closest(".explore-item");
+    if (!item) return;
+
+    const willOpen = !item.classList.contains("explore-item--open");
+    listEl.querySelectorAll(".explore-item--open").forEach((el) => {
+      el.classList.remove("explore-item--open");
+      el.querySelector(".explore-item__media")?.setAttribute("aria-expanded", "false");
+    });
+
+    if (willOpen) {
+      item.classList.add("explore-item--open");
+      media.setAttribute("aria-expanded", "true");
+    }
+  });
+}
+
+function filterNodesBySearch(nodes, query) {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return nodes;
+  return nodes.filter((node) => {
+    const title = String(node.titolo || "").toLowerCase();
+    const author = String(node.autore || "").toLowerCase();
+    return title.includes(q) || author.includes(q);
+  });
+}
+
+function setupSortFilter({
+  toolbarEl,
+  triggerEl,
+  valueEl,
+  panelEl,
+  listboxEl,
+  listEl,
+  searchInputEl,
+  allNodes,
+}) {
   if (!triggerEl || !valueEl || !panelEl || !listboxEl || !listEl) {
     toolbarEl?.setAttribute("hidden", "");
     return;
@@ -137,6 +173,7 @@ function setupSortFilter({ toolbarEl, triggerEl, valueEl, panelEl, listboxEl, li
   toolbarEl?.removeAttribute("hidden");
 
   let selected = "recent";
+  let searchQuery = "";
 
   function labelFor(value) {
     return SORT_OPTIONS.find((o) => o.value === value)?.label || "Recent";
@@ -160,11 +197,12 @@ function setupSortFilter({ toolbarEl, triggerEl, valueEl, panelEl, listboxEl, li
   function applySort() {
     valueEl.textContent = labelFor(selected);
     renderOptions();
-    listEl.innerHTML = renderExploreList(allNodes, selected);
+    const visible = filterNodesBySearch(allNodes, searchQuery);
+    listEl.innerHTML = renderExploreList(visible, selected);
   }
 
   function setOpen(open) {
-    toolbarEl.classList.toggle("is-open", open);
+    toolbarEl?.classList.toggle("is-open", open);
     triggerEl.setAttribute("aria-expanded", open ? "true" : "false");
   }
 
@@ -181,8 +219,13 @@ function setupSortFilter({ toolbarEl, triggerEl, valueEl, panelEl, listboxEl, li
     setOpen(false);
   });
 
+  searchInputEl?.addEventListener("input", () => {
+    searchQuery = searchInputEl.value;
+    applySort();
+  });
+
   document.addEventListener("click", (e) => {
-    if (!toolbarEl.contains(e.target)) setOpen(false);
+    if (toolbarEl && !toolbarEl.contains(e.target)) setOpen(false);
   });
 
   document.addEventListener("keydown", (e) => {
@@ -190,6 +233,28 @@ function setupSortFilter({ toolbarEl, triggerEl, valueEl, panelEl, listboxEl, li
   });
 
   applySort();
+}
+
+// Quando si torna alla Project List da "Torna alla Project List" (anteprima
+// EXPLORE), l'URL contiene #proj-<id>: scorri fino a quel progetto e
+// evidenzialo brevemente.
+function scrollToFocusedProject() {
+  const hash = location.hash;
+  if (!hash || !hash.startsWith("#proj-")) return;
+  let target = null;
+  try {
+    target = document.getElementById(hash.slice(1));
+  } catch {
+    target = null;
+  }
+  if (!target) return;
+  requestAnimationFrame(() => {
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    target.classList.add("explore-item--focused");
+    target.classList.add("explore-item--open");
+    target.querySelector(".explore-item__media")?.setAttribute("aria-expanded", "true");
+    setTimeout(() => target.classList.remove("explore-item--focused"), 1600);
+  });
 }
 
 async function main() {
@@ -200,30 +265,41 @@ async function main() {
   const valueEl = document.getElementById("explore-sort-value");
   const panelEl = document.getElementById("explore-sort-panel");
   const listboxEl = document.getElementById("explore-sort-list");
-  if (!listEl) return;
+  const searchInputEl = document.getElementById("explore-search-input");
+  const heroSvg = document.getElementById("hero-graph-svg");
 
-  statusEl.hidden = false;
+  // Lo stesso script serve sia la Home (solo grafo hero) sia la scheda
+  // "Project List" (solo lista). Se non c'è né lista né hero, non fare nulla.
+  if (!listEl && !heroSvg) return;
+
+  if (statusEl) statusEl.hidden = false;
 
   try {
-    const res = await fetch("data.json", { cache: "no-store" });
-    if (!res.ok) throw new Error(`Impossibile caricare data.json (${res.status})`);
-    const raw = await res.json();
+    const raw = await loadProjectsRaw();
     const model = buildNetwork(raw);
-    setupSortFilter({
-      toolbarEl,
-      triggerEl,
-      valueEl,
-      panelEl,
-      listboxEl,
-      listEl,
-      allNodes: model.nodes,
-    });
-    statusEl.hidden = true;
+    if (listEl) {
+      setupListItemToggle(listEl);
+      setupSortFilter({
+        toolbarEl,
+        triggerEl,
+        valueEl,
+        panelEl,
+        listboxEl,
+        listEl,
+        searchInputEl,
+        allNodes: model.nodes,
+      });
+      scrollToFocusedProject();
+    }
+    if (statusEl) statusEl.hidden = true;
     setupHeroDecorativeGraph(model);
   } catch (err) {
     console.error(err);
-    statusEl.textContent = "Errore caricamento archivio.";
-    statusEl.hidden = false;
+    if (statusEl) {
+      const detail = err instanceof Error ? err.message : String(err);
+      statusEl.textContent = detail || "Errore caricamento archivio.";
+      statusEl.hidden = false;
+    }
   }
 }
 

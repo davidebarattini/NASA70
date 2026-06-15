@@ -291,6 +291,8 @@ function previewBodyHtml(text) {
 export function renderProjectPreviewHtml(node, opts = {}) {
   const heroSrc = node.previewPath ? getPreviewHref(node.previewPath) : "";
   const highlightTags = opts.highlightTags instanceof Set ? opts.highlightTags : null;
+  const backToListHref =
+    typeof opts.backToListHref === "string" && opts.backToListHref ? opts.backToListHref : "";
 
   return `
     <article class="preview-panel" aria-live="polite">
@@ -306,11 +308,18 @@ export function renderProjectPreviewHtml(node, opts = {}) {
       <div class="preview-panel__lowerScroll" tabindex="0" aria-label="Dettagli progetto">
         ${previewAllTagsHtml(node, highlightTags)}
         ${previewBodyHtml(node.descrizione)}
-        ${
-          node.url
-            ? `<a class="preview-panel__cta mono" href="${escapeAttr(node.url)}" target="_blank" rel="noopener noreferrer">Apri il progetto</a>`
-            : ""
-        }
+        <div class="preview-panel__actions">
+          ${
+            node.url
+              ? `<a class="preview-panel__cta preview-panel__cta--primary mono" href="${escapeAttr(node.url)}" target="_blank" rel="noopener noreferrer">Apri il progetto</a>`
+              : ""
+          }
+          ${
+            backToListHref
+              ? `<a class="preview-panel__cta preview-panel__cta--back mono" href="${escapeAttr(backToListHref)}">Torna alla Project List</a>`
+              : ""
+          }
+        </div>
       </div>
     </article>`;
 }

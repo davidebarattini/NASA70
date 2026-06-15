@@ -158,6 +158,31 @@ body {
   flex-shrink: 0;
 }
 
+/* Freccia "torna alla Home" nella scheda (al posto del logo). */
+.header__back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  color: rgba(232, 234, 239, 0.7);
+  text-decoration: none;
+  transition: color var(--transition), background var(--transition);
+}
+
+.header__back:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.header__back svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
 .site-header__start {
   display: flex;
   align-items: center;
@@ -316,6 +341,31 @@ body {
 
 .graph-node--dim {
   opacity: 0.14;
+}
+
+/* Progetto "spento" quando un altro è selezionato e non ha tag in comune:
+   non più cliccabile né hoverabile. */
+.graph-node--off {
+  opacity: 0.12;
+  cursor: default;
+  pointer-events: none;
+}
+
+.graph-node--off .graph-node__hit {
+  pointer-events: none !important;
+}
+
+/* Progetto selezionato (clic): anello esterno bianco ben visibile.
+   Usiamo l'halo (raggio ringR*1.5) così l'anello sta più all'esterno e si
+   distingue dall'outline che abbraccia la miniatura. */
+.graph-node--selected .graph-node__halo {
+  stroke: #ffffff !important;
+  stroke-opacity: 1 !important;
+  stroke-width: 2px !important;
+}
+
+.graph-node--selected .graph-node__thumb {
+  opacity: 1;
 }
 
 .graph-node--inactive {
@@ -1191,6 +1241,8 @@ body {
 .page-top10 {
   overflow: hidden;
   --explore-legend-offset: 3.45rem;
+  /* Larghezza riservata sulla destra per il pannello anteprima. */
+  --preview-reserve: clamp(19rem, 31vw, 27rem);
 }
 
 .page-top10 .top10-shell {
@@ -1200,7 +1252,8 @@ body {
   right: 0;
   bottom: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(19rem, 31vw, 27rem);
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
   z-index: 0;
 }
 
@@ -1209,12 +1262,23 @@ body {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .page-top10 .main-stage {
   position: absolute;
   inset: 0;
+}
+
+/* Lo starfield copre tutta la larghezza (sfondo continuo, niente colonna
+   vuota visibile), mentre il grafo e i filtri restano confinati a sinistra
+   così il pannello che esce a destra non copre mai i progetti.
+   NB: gli <svg> sono "replaced elements" → con width:auto userebbero la
+   larghezza intrinseca (~300px) e i nodi si stiperebbero a sinistra. Usiamo
+   quindi una larghezza esplicita con calc(). */
+.page-top10 .graph-svg {
+  left: 0;
+  right: auto;
+  width: calc(100% - var(--preview-reserve));
 }
 
 .page-top10 .legend {
@@ -1231,7 +1295,7 @@ body {
 .page-top10 .filters {
   position: absolute;
   left: 0;
-  right: 0;
+  right: var(--preview-reserve);
   bottom: 0;
   z-index: 15;
   display: grid;
@@ -1265,13 +1329,39 @@ body {
 }
 
 .page-top10 .top10-preview-pane {
-  position: relative;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--preview-reserve);
+  z-index: 12;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   background: var(--void);
-  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.04);
+  /* Bordo/ombra solo quando il pannello è attivo: da nascosto non devono
+     "sbavare" nell'area visibile lasciando intravedere una colonna. */
+  border-left: 1px solid transparent;
+  box-shadow: none;
+  /* La zona a destra è riservata (il grafo è confinato a sinistra) quindi il
+     pannello non copre i progetti; quando è nascosto lì si vede solo lo
+     starfield a tutta larghezza: nessuna colonna visibile. */
+  transform: translateX(103%);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.42s cubic-bezier(0.22, 0.61, 0.36, 1), opacity 0.42s ease;
+  transition-delay: 0s;
+}
+
+.page-top10 .top10-preview-pane--active {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+  border-left-color: rgba(255, 255, 255, 0.08);
+  box-shadow: -18px 0 42px rgba(0, 0, 0, 0.42);
+  /* Piccolo delay solo in entrata (quando il pannello "esce"). */
+  transition-delay: 0.16s;
 }
 
 .page-top10 .top10-preview-pane__inner {
@@ -1438,6 +1528,30 @@ body {
   color: rgba(232, 234, 239, 0.88);
 }
 
+.preview-panel__cta--primary {
+  color: var(--nasa-red);
+  text-decoration-color: rgba(252, 61, 33, 0.5);
+}
+
+.preview-panel__cta--primary:hover {
+  color: var(--nasa-red-hover, var(--nasa-red));
+  text-decoration-color: var(--nasa-red);
+}
+
+.preview-panel__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* Quando entrambi i link sono presenti, "Torna alla Project List" sta appena
+   sotto "Apri il progetto" con poco spazio. */
+.preview-panel__cta--back {
+  margin-top: 0.6rem;
+  text-decoration-color: rgba(232, 234, 239, 0.45);
+  color: rgba(232, 234, 239, 0.78);
+}
+
 .preview-panel__tagBlock {
   margin-top: 0.35rem;
 }
@@ -1520,6 +1634,29 @@ body {
   .page-top10 .top10-graph-pane {
     border-right: 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* Su mobile niente colonna riservata: grafo e filtri a tutta larghezza. */
+  .page-top10 .graph-svg {
+    left: 0;
+    right: 0;
+    width: 100%;
+  }
+
+  .page-top10 .filters {
+    right: 0;
+  }
+
+  /* Su mobile il pannello torna statico (riga inferiore), sempre visibile. */
+  .page-top10 .top10-preview-pane {
+    position: relative;
+    width: auto;
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+    border-left: 0;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    transition: none;
   }
 
   .page-top10 .legend {
@@ -1853,6 +1990,101 @@ body {
   color: inherit;
 }
 
+.explore-toolbar__headRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: clamp(1rem, 3vw, 2.5rem);
+  margin-bottom: 1.5rem;
+}
+
+.explore-toolbar__headRow .projects-section__title {
+  margin-bottom: 0;
+}
+
+.explore-search {
+  flex: 0 1 clamp(12rem, 28vw, 22rem);
+  min-width: 0;
+}
+
+.explore-search__label {
+  display: block;
+  cursor: text;
+}
+
+.explore-search__control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid rgba(232, 234, 239, 0.55);
+  transition: border-color var(--transition);
+}
+
+.explore-search__control:focus-within {
+  border-bottom-color: rgba(232, 234, 239, 0.95);
+}
+
+.explore-search__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(232, 234, 239, 0.92);
+  outline: none;
+  appearance: none;
+}
+
+.explore-search__input::-webkit-search-cancel-button,
+.explore-search__input::-webkit-search-decoration {
+  appearance: none;
+}
+
+.explore-search__hint {
+  flex: 0 0 auto;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(232, 234, 239, 0.45);
+  pointer-events: none;
+  transition: opacity var(--transition);
+}
+
+.explore-search__icon {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  color: rgba(232, 234, 239, 0.72);
+}
+
+.explore-search__control:focus-within .explore-search__hint,
+.explore-search__input:not(:placeholder-shown) ~ .explore-search__hint {
+  opacity: 0;
+}
+
+@media (max-width: 820px) {
+  .explore-toolbar__headRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+    margin-bottom: 1.1rem;
+  }
+
+  .explore-search {
+    flex-basis: auto;
+    width: 100%;
+  }
+}
+
 @media (max-width: 980px) {
   .hero-nasa {
     grid-template-columns: 1fr;
@@ -2019,7 +2251,7 @@ body {
 
 .explore-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 11rem) auto minmax(0, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: start;
   gap: clamp(0.75rem, 2vw, 1.5rem);
   padding: var(--explore-inset, 1rem) 0 clamp(1.1rem, 2.5vw, 1.85rem);
@@ -2030,6 +2262,21 @@ body {
 
 .explore-item:first-child {
   border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Evidenziazione temporanea quando si torna alla lista da "Torna alla
+   Project List". */
+.explore-item--focused {
+  animation: exploreItemFocusFlash 1.6s ease;
+}
+
+@keyframes exploreItemFocusFlash {
+  0% {
+    background: rgba(255, 255, 255, 0.12);
+  }
+  100% {
+    background: transparent;
+  }
 }
 
 .explore-item__row {
@@ -2055,7 +2302,6 @@ body {
   grid-column: 2;
   margin: 0;
   min-width: 0;
-  max-width: 11rem;
   font-family: var(--font-sans);
   font-size: clamp(0.82rem, 1.15vw, 0.98rem);
   font-weight: 400;
@@ -2075,11 +2321,24 @@ body {
   align-self: start;
   justify-self: center;
   position: relative;
-  width: 220px;
-  height: 150px;
+  display: block;
+  width: 100%;
+  max-width: 220px;
+  aspect-ratio: 220 / 150;
   margin: 0;
+  padding: 0;
+  border: 0;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+}
+
+.explore-item__media:focus-visible {
+  outline: 2px solid rgba(232, 234, 239, 0.55);
+  outline-offset: 3px;
 }
 
 .explore-item__media--empty {
@@ -2092,11 +2351,6 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.explore-item__img--secondary {
-  opacity: 0;
 }
 
 .explore-item__date {
@@ -2116,7 +2370,7 @@ body {
 }
 
 .explore-item__expand {
-  grid-column: 1;
+  grid-column: 1 / span 2;
   grid-row: 2;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -2168,33 +2422,49 @@ body {
   border-bottom-color: rgba(232, 234, 239, 0.45);
 }
 
+.explore-item__link--primary {
+  color: var(--nasa-red);
+  border-bottom-color: rgba(252, 61, 33, 0.5);
+}
+
+.explore-item__link--primary:hover {
+  color: var(--nasa-red-hover, var(--nasa-red));
+  border-bottom-color: var(--nasa-red);
+}
+
 @media (hover: hover) {
+  .explore-item--open,
   .explore-item:hover {
     border-bottom-color: rgba(255, 255, 255, 0.22);
   }
 
+  .explore-item--open .explore-item__title,
+  .explore-item--open .explore-item__author,
   .explore-item:hover .explore-item__title,
   .explore-item:hover .explore-item__author {
     color: #fff;
   }
 
-  .explore-item--dual:hover .explore-item__img--primary {
-    opacity: 0;
-  }
-
-  .explore-item--dual:hover .explore-item__img--secondary {
-    opacity: 1;
-  }
-
+  .explore-item--open .explore-item__expand,
   .explore-item:hover .explore-item__expand {
     grid-template-rows: 1fr;
     opacity: 1;
     transition-delay: 0.5s, 0.5s;
   }
 
+  .explore-item--open .explore-item__expandInner,
   .explore-item:hover .explore-item__expandInner {
     padding-top: 1rem;
     transition-delay: 0.5s;
+  }
+
+  /* Click sull'immagine: apertura immediata, senza delay dell'hover. */
+  .explore-item--open .explore-item__expand {
+    transition-delay: 0s, 0s;
+  }
+
+  .explore-item--open .explore-item__expandInner {
+    transition-delay: 0s;
   }
 }
 

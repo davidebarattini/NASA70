@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NASA70 — Projects</title>
-  <link rel="stylesheet" href="css/main.css?v=data-extended-2026-05-28">
+  <link rel="stylesheet" href="css/main.css?v=open-red">
 </head>
 <body class="page-explore">
   <header class="site-header">
@@ -12,10 +12,6 @@
       <a class="brand" href="https://www.nasa.gov" target="_blank" rel="noopener noreferrer" aria-label="NASA — sito ufficiale (si apre in una nuova scheda)">
         <img class="brand__logo" src="Logo/Nasa70_Logo.png" alt="NASA70" width="132" height="55" decoding="async">
       </a>
-      <nav class="site-nav" aria-label="Sezioni">
-        <a class="site-nav__link site-nav__link--active" href="index.html" aria-current="page">Projects</a>
-        <a class="site-nav__link" href="explore.html">Explore</a>
-      </nav>
     </div>
   </header>
 
@@ -26,7 +22,7 @@
           <h1 class="hero-nasa__title" id="hero-title">70th Anniversary<br>Project Archive</h1>
           <p class="hero-nasa__lead">An interactive collection of projects created to celebrate 70 years of NASA.</p>
           <p class="hero-nasa__body">The archive allows users to explore projects through information, tags, and thematic relationships, transforming a simple collection of content into a system of connections between ideas, missions, and visual languages.</p>
-          <a class="hero-nasa__cta" href="explore.html">
+          <a class="hero-nasa__cta" href="projects.html">
             <span class="hero-nasa__ctaLabel">Explore Projects</span>
             <span class="hero-nasa__ctaArrow" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" focusable="false"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -52,36 +48,9 @@
           </svg>
         </div>
       </section>
-      <p class="explore-main__status mono" id="explore-status" hidden>Caricamento archivio…</p>
-      <div class="explore-toolbar" id="explore-toolbar" hidden>
-        <div class="explore-toolbar__col">
-          <h2 class="projects-section__title">Project List<span class="projects-section__titleColon">:</span></h2>
-          <div class="explore-toolbar__sortRow">
-            <div class="explore-sortFilter" id="explore-sort-filter">
-              <span class="explore-toolbar__label mono">Sort by:</span>
-              <button
-                type="button"
-                class="explore-sortFilter__trigger mono"
-                id="explore-sort-trigger"
-                aria-expanded="false"
-                aria-controls="explore-sort-panel"
-              >
-                <span class="explore-sortFilter__value" id="explore-sort-value"></span>
-                <span class="explore-sortFilter__chev" aria-hidden="true"></span>
-              </button>
-            </div>
-          </div>
-          <div class="explore-sortFilter__panel" id="explore-sort-panel">
-            <div class="explore-sortFilter__panelInner">
-              <ul class="explore-sortFilter__list" id="explore-sort-list" role="listbox" aria-label="Ordina progetti"></ul>
-            </div>
-          </div>
-        </div>
-      </div>
-      <ul class="explore-list" id="explore-list" aria-label="Elenco progetti"></ul>
     </div>
   </main>
 
-  <script type="module" src="js/explore.js"></script>
+  <script type="module" src="js/explore.js?v=open-red"></script>
 </body>
 </html>

@@ -1,4 +1,5 @@
 import { buildNetwork, filterNetworkByTag, legendTagsTopFromNodes } from "./graphData.js";
+import { loadProjectsRaw } from "./loadData.js";
 import { createGraphController } from "./graph.js";
 import {
   setupFilters,
@@ -101,9 +102,7 @@ async function main() {
 
   if (!stage || !svg || !canvas || !filterBar || !tooltipEl || !modalRoot || !modalInner || !previewInner) return;
 
-  const res = await fetch("data.json", { cache: "no-store" });
-  if (!res.ok) throw new Error(`Impossibile caricare data.json (${res.status})`);
-  const raw = await res.json();
+  const raw = await loadProjectsRaw();
   const allNodesModel = buildNetwork(raw);
   // Mostriamo tutti i progetti: la prossimità (e dimensione) è data dai tag in comune,
   // non più dalla appartenenza ai top-tag.
@@ -123,6 +122,32 @@ async function main() {
 
   let lockedPreviewId = null;
   let hoverPreviewId = null;
+  let hidePreviewTimer = null;
+  // Id del progetto da cui si è arrivati via "Mostra collegamenti" (lista):
+  // sulla sua anteprima mostriamo il link "Torna alla Project List".
+  let backToListNodeId = null;
+
+  function cancelHidePreview() {
+    if (hidePreviewTimer) {
+      clearTimeout(hidePreviewTimer);
+      hidePreviewTimer = null;
+    }
+  }
+
+  // Nasconde il pannello con un minimo ritardo: evita che, passando da un
+  // nodo all'altro, il pannello "rientri" e poi riesca di scatto.
+  function scheduleHidePreview() {
+    cancelHidePreview();
+    hidePreviewTimer = setTimeout(() => {
+      hidePreviewTimer = null;
+      if (lockedPreviewId) {
+        showLockedPreview();
+        return;
+      }
+      hoverPreviewId = null;
+      showPreviewEmpty();
+    }, 110);
+  }
 
   const PREVIEW_EMPTY =
     '<p class="top10-preview__empty">Select a project to preview</p>';
@@ -132,6 +157,36 @@ async function main() {
     previewInner.innerHTML = PREVIEW_EMPTY;
     hoverPreviewId = null;
     if (!lockedPreviewId) previewPane?.classList.remove("top10-preview-pane--active");
+  }
+
+  // Id dei progetti che condividono almeno un tag con `node` (incluso `node`).
+  function relatedIdsForNode(node) {
+    const ids = new Set([node.id]);
+    const tags = new Set(
+      (node.tagsNorm || []).map((t) => String(t).trim().toLowerCase()).filter(Boolean),
+    );
+    if (!tags.size) return ids;
+    for (const n of fullModel.nodes) {
+      if (n.id === node.id) continue;
+      const shares = (n.tagsNorm || []).some((t) =>
+        tags.has(String(t).trim().toLowerCase()),
+      );
+      if (shares) ids.add(n.id);
+    }
+    return ids;
+  }
+
+  // Id dei progetti interattivi dopo un click: almeno un tag in comune.
+  function allowedIdsForSelection(node) {
+    const related = relatedIdsForNode(node);
+    const activeFilter = graph.getActiveFilter?.();
+    if (!activeFilter) return related;
+    const tagNorm = String(activeFilter).trim();
+    return new Set(
+      fullModel.nodes
+        .filter((n) => related.has(n.id) && (n.tagsNorm || []).includes(tagNorm))
+        .map((n) => String(n.id)),
+    );
   }
 
   function tagsOfLockedProject() {
@@ -146,6 +201,7 @@ async function main() {
 
   function showPreview(node, { locked = false } = {}) {
     if (!previewInner || !node) return;
+    cancelHidePreview();
     const nid = node.id ?? null;
     if (locked) {
       lockedPreviewId = nid;
@@ -157,7 +213,13 @@ async function main() {
     const lockedTags = tagsOfLockedProject();
     const highlightTags =
       lockedTags && lockedPreviewId && nid !== lockedPreviewId ? lockedTags : null;
-    previewInner.innerHTML = renderProjectPreviewHtml(node, { highlightTags });
+    // "Torna alla Project List" solo sull'anteprima (bloccata) del progetto da
+    // cui si è arrivati tramite "Mostra collegamenti".
+    const backToListHref =
+      backToListNodeId && nid === backToListNodeId && lockedPreviewId === backToListNodeId
+        ? `projects.html#proj-${encodeURIComponent(String(nid))}`
+        : "";
+    previewInner.innerHTML = renderProjectPreviewHtml(node, { highlightTags, backToListHref });
     previewPane?.classList.add("top10-preview-pane--active");
   }
 
@@ -172,6 +234,7 @@ async function main() {
     lockedPreviewId = null;
     graph?.unpinNode?.();
     graph?.clearFocus?.();
+    graph?.clearSelection?.();
     if (hoverPreviewId) {
       const node = fullModel.nodes.find((n) => n.id === hoverPreviewId);
       if (node) showPreview(node, { locked: false });
@@ -187,22 +250,19 @@ async function main() {
     onNodeHover: (node) => {
       if (isMobile()) return;
       if (node?._inactive) return; // nodi "spenti": niente preview
+      cancelHidePreview();
       if (node?.id && hoverPreviewId === node.id) return;
       showPreview(node);
     },
     onNodeLeave: () => {
       if (isMobile()) return;
-      if (lockedPreviewId) {
-        showLockedPreview();
-        return;
-      }
-      hoverPreviewId = null;
-      showPreviewEmpty();
+      scheduleHidePreview();
     },
     onNodeClick: (node) => {
       if (node?._inactive) return; // nodi "spenti": non si possono selezionare
       showPreview(node, { locked: true });
-      graph.pinNode?.(node.id);
+      const allowed = allowedIdsForSelection(node);
+      graph.setSelection?.(allowed, node.id);
     },
   });
 
@@ -262,8 +322,12 @@ async function main() {
 
     const focusProject = () => {
       graph.resetView();
-      graph.pinNode?.(node.id);
+      // Siamo arrivati qui da "Mostra collegamenti": ricordiamo il progetto per
+      // mostrare il link "Torna alla Project List" nella sua anteprima.
+      backToListNodeId = node.id;
       showPreview(node, { locked: true });
+      const allowed = allowedIdsForSelection(node);
+      graph.setSelection?.(allowed, node.id);
       history.replaceState(null, "", location.pathname);
     };
 
@@ -284,12 +348,7 @@ async function main() {
 
   stage.addEventListener("mouseleave", () => {
     if (isMobile()) return;
-    if (lockedPreviewId) {
-      showLockedPreview();
-      return;
-    }
-    hoverPreviewId = null;
-    showPreviewEmpty();
+    scheduleHidePreview();
   });
 
   function setLegendOpen(open) {
@@ -322,7 +381,14 @@ async function main() {
 
   stage.addEventListener("click", (e) => {
     if (e.target.closest(".graph-node")) return;
-    if (lockedPreviewId) unlockPreview();
+    if (lockedPreviewId) {
+      // Click sullo sfondo: chiusura completa. Azzeriamo anche l'hover così il
+      // pannello di destra rientra invece di riaprirsi sul progetto appena
+      // deselezionato.
+      cancelHidePreview();
+      hoverPreviewId = null;
+      unlockPreview();
+    }
   });
 }
 
@@ -332,7 +398,7 @@ main().catch((err) => {
   if (stage) {
     stage.insertAdjacentHTML(
       "beforeend",
-      `<p style="position:fixed;bottom:3rem;left:50%;transform:translateX(-50%);color:#fca5a5;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:0.75rem;">Errore caricamento archivio.</p>`
+      `<p style="position:fixed;bottom:3rem;left:50%;transform:translateX(-50%);max-width:min(92vw,42rem);text-align:center;color:#fca5a5;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:0.75rem;">${String(err?.message || "Errore caricamento archivio.")}</p>`
     );
   }
 });

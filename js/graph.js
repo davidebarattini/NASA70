@@ -1,4 +1,4 @@
-import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+import * as d3 from "./vendor/d3.bundle.mjs";
 import { filterNetworkByTag, getPreviewHref } from "./graphData.js";
 
 /** Quattro dimensioni discrete stelle (legenda: S → XL). */
@@ -118,6 +118,10 @@ export function createGraphController(options) {
   /** @type {() => void} */
   let clearFocusFn = () => {};
   let pinnedNodeId = null;
+  /** Set di id ancora interattivi quando un progetto è selezionato (null = nessuna selezione). */
+  let selectionAllowedIds = null;
+  /** Adiacenze (link) correnti: id → Set di id collegati (incluso se stesso). */
+  let nodeNeighbors = new Map();
   /** @type {Map<string, {x:number,y:number}>} */
   let nodePos = new Map();
   /** @type {object[]} */
@@ -330,6 +334,9 @@ export function createGraphController(options) {
       // salva sul link per lookup veloce
       l._k = key;
     }
+    // Esponiamo le adiacenze (gli stessi "collegamenti" usati in hover) così
+    // la selezione al click usa esattamente lo stesso insieme di progetti.
+    nodeNeighbors = neighbors;
 
     const isAllView = activeTagFilter == null;
     const n = Math.max(1, nodes.length);
@@ -526,11 +533,31 @@ export function createGraphController(options) {
       linkSel.classed("link--active", false);
     }
 
+    function tagRelatedIds(nodeId) {
+      const origin = nodes.find((x) => x.id === nodeId);
+      if (!origin) return new Set([nodeId]);
+      const keep = new Set([nodeId]);
+      const tags = new Set(
+        (origin.tagsNorm || [])
+          .map((t) => String(t).trim().toLowerCase())
+          .filter(Boolean),
+      );
+      if (!tags.size) return keep;
+      for (const n of nodes) {
+        if (n._inactive || n.id === nodeId) continue;
+        const shares = (n.tagsNorm || []).some((t) =>
+          tags.has(String(t).trim().toLowerCase()),
+        );
+        if (shares) keep.add(n.id);
+      }
+      return keep;
+    }
+
     function applyFocus(node) {
       const activeId = pinnedNodeId || node?.id;
       if (!activeId) return;
       const keepLinks = incidentLinkKeys.get(activeId) || new Set();
-      const keep = neighbors.get(activeId) || new Set([activeId]);
+      const keep = tagRelatedIds(activeId);
       const isPinned = !!pinnedNodeId;
 
       nodeSel.classed("graph-node--dim", (d) => !keep.has(d.id));
@@ -572,7 +599,9 @@ export function createGraphController(options) {
           hoverTimerId = setTimeout(() => {
             hoverTimerId = null;
             hoverActiveId = d.id;
-            if (!pinnedNodeId) applyFocus(d);
+            // Con una selezione attiva la vista resta fissa sul progetto
+            // cliccato: l'hover non deve cambiare i collegamenti evidenziati.
+            if (!pinnedNodeId && !selectionAllowedIds) applyFocus(d);
             if (onNodeHover) onNodeHover(d, event);
           }, HOVER_DELAY_MS);
         })
@@ -584,7 +613,7 @@ export function createGraphController(options) {
           const wasActive = hoverActiveId != null;
           hoverActiveId = null;
           if (wasActive) {
-            clearFocus();
+            if (!selectionAllowedIds) clearFocus();
             if (onNodeLeave) onNodeLeave();
           }
         })
@@ -593,10 +622,10 @@ export function createGraphController(options) {
           if (onNodeClick) onNodeClick(d, event);
         })
         .on("focus", (_event, d) => {
-          if (!pinnedNodeId) applyFocus(d);
+          if (!pinnedNodeId && !selectionAllowedIds) applyFocus(d);
         })
         .on("blur", () => {
-          clearFocus();
+          if (!selectionAllowedIds) clearFocus();
         })
         .on("keydown", (event, d) => {
           if (event.key === "Enter" || event.key === " ") {
@@ -850,6 +879,42 @@ export function createGraphController(options) {
     unpinNode() {
       pinnedNodeId = null;
       clearFocusFn();
+    },
+    // Selezione: solo i nodi in `allowedIds` (es. quelli con tag in comune)
+    // restano interattivi/visibili; gli altri si "spengono" e non sono più
+    // cliccabili né hoverabili.
+    setSelection(allowedIds, selectedId) {
+      selectionAllowedIds =
+        allowedIds instanceof Set
+          ? allowedIds
+          : Array.isArray(allowedIds)
+            ? new Set(allowedIds.map(String))
+            : null;
+      const selId = selectedId != null ? String(selectedId) : null;
+      // Azzera eventuali evidenziazioni di collegamenti rimaste dall'hover
+      // precedente al click: la vista deve restare fissa e pulita.
+      clearFocusFn();
+      if (nodeSel && !nodeSel.empty()) {
+        nodeSel.classed("graph-node--off", (d) =>
+          selectionAllowedIds ? !selectionAllowedIds.has(String(d.id)) : false,
+        );
+        nodeSel.classed("graph-node--selected", (d) =>
+          selId != null && String(d.id) === selId,
+        );
+      }
+    },
+    clearSelection() {
+      selectionAllowedIds = null;
+      if (nodeSel && !nodeSel.empty()) {
+        nodeSel.classed("graph-node--off", false);
+        nodeSel.classed("graph-node--selected", false);
+      }
+    },
+    // Id dei progetti collegati a `id` (gli stessi evidenziati in hover),
+    // incluso `id` stesso.
+    getNeighborIds(id) {
+      const set = nodeNeighbors.get(String(id));
+      return set ? new Set(set) : new Set([String(id)]);
     },
     ensureNodeNotUnderRect(id, rect, pad = 18) {
       const nid = id ? String(id) : "";

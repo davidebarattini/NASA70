@@ -2,18 +2,18 @@
 Corso d’interaction design, CV429.01  
 Docenti: A. Gysin, G. Profeta  
 
-Progetto 1: La conquista dello spazio
+Progetto 1: NASA 70 Archive
 
 # Spacesuit evolution
 Autore: Davide Barattini \
-[Spacesuit evolution](https://davidebarattini.github.io/Nasa_Spacesuits/)
+[NASA 70](https://davidebarattini.github.io/NASA70/)
 
 
 ## Introduzione e tema
-Spacesuit evolution è un progetto che racconta l’evoluzione delle tute spaziali della NASA dagli anni ’60 fino al 2011, attraversando i principali programmi dell’esplorazione umana: Mercury, Gemini, Apollo e Space Shuttle.
-In questo arco temporale, le tute spaziali si sono trasformate da semplici dispositivi di sopravvivenza a sistemi altamente complessi, progettati per operare in ambienti estremi e supportare attività sempre più articolate, come le passeggiate spaziali (EVA) e le operazioni sulla superficie lunare.
-Il progetto utilizza immagini provenienti dagli archivi NASA per costruire un’esperienza interattiva che permette di osservare e comprendere come queste tute si siano evolute nel tempo, in relazione alle esigenze tecniche e agli obiettivi delle diverse missioni.
-L’obiettivo è rendere accessibile un contenuto tecnico attraverso una modalità visiva pensata per un pubblico generalista.
+NASA 70 Archive è una piattaforma web progettata per celebrare il settantesimo anniversario della NASA attraverso una raccolta di progetti realizzati a partire dagli archivi digitali dell'agenzia spaziale.
+L'obiettivo del progetto è offrire un sistema di esplorazione che permetta agli utenti di scoprire relazioni tra contenuti diversi, superando una semplice organizzazione cronologica o alfabetica.
+Attraverso l'utilizzo di tag e connessioni semantiche, la piattaforma mette in evidenza i legami esistenti tra i progetti, consentendo di navigare l'archivio seguendo temi, tecnologie, missioni e argomenti condivisi.
+Il progetto trasforma quindi l'archivio in una rete di conoscenze interconnesse, favorendo una modalità di scoperta libera e non lineare.
 
 
 ## Riferimenti progettuali
@@ -26,14 +26,23 @@ Figma e Framer hanno invece influenzato la struttura dell'interfaccia, basata su
 
 
 ## Design dell’interfaccia e modalità di interazione
-L’interfaccia è costruita attorno alle immagini delle tute spaziali, che rappresentano l’elemento principale dell’esperienza.
-Ogni tuta è presentata in modo isolato e accompagnata da punti interattivi (hotspot) posizionati sui diversi componenti.
-Le principali modalità di interazione includono:
-- Hover o click sui punti interattivi per visualizzare informazioni specifiche;
-- Navigazione tra diverse tute appartenenti a epoche e missioni differenti;
-- Organizzazione cronologica dei contenuti.
+L'esperienza è suddivisa in due modalità principali.\
+[Archivio]
+La prima schermata presenta tutti i progetti sotto forma di archivio consultabile.
+Ogni progetto include:
+immagine di anteprima, titolo, autore, anno di pubblicazione, descrizione
+L'utente può ordinare e cercare i progetti per individuare rapidamente contenuti di interesse.\
 
-[<img src="doc/Interfaccia.png" width="500" alt="Magic trick">]()
+[<img src="doc/Project_List.png" width="500" alt="Magic trick">]()
+
+[Connessioni]
+La seconda modalità di navigazione permette di visualizzare i progetti attraverso una mappa relazionale.
+Ogni progetto viene rappresentato da un cerchio. La dimensione del cerchio varia in base alla quantità di tag che quel progetto ha in comune con gli altri: più un progetto condivide tag con il resto dell’archivio, più viene rappresentato in modo visivamente rilevante.
+La disposizione dei cerchi non è casuale: i progetti con più tag in comune tendono ad avvicinarsi tra loro, creando gruppi tematici. In questo modo l’utente può individuare rapidamente quali progetti sono più collegati, quali temi ricorrono con maggiore frequenza e quali contenuti occupano una posizione più centrale all’interno dell’archivio.
+In basso troviamo i 10 tag più utilizzati, che una volta cliccato su uno di esso, quesat lista si aggiorna mostrando,a loro volta, i 10 tag piu utilizzati di quei progetti selezionati.
+Questa visualizzazione trasforma l’archivio in una rete esplorabile, dove la relazione tra i progetti diventa parte dell’esperienza di navigazione.\
+
+[<img src="doc/Connessioni.png" width="500" alt="Magic trick">]()
 
 
 ## Tecnologia usata
