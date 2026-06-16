@@ -27,26 +27,26 @@ Figma e Framer hanno invece influenzato la struttura dell'interfaccia, basata su
 
 ## Design dell’interfaccia e modalità di interazione
 L'esperienza è suddivisa in due modalità principali.\
-[Archivio]
+Archivio\
 La prima schermata presenta tutti i progetti sotto forma di archivio consultabile.
 Ogni progetto include:
 immagine di anteprima, titolo, autore, anno di pubblicazione, descrizione
 L'utente può ordinare e cercare i progetti per individuare rapidamente contenuti di interesse.\
 
-[<img src="doc/Project_List.png" width="500" alt="Magic trick">]()
+[<img src="doc/Project_List.png" width="500" alt="Magic trick">]()\
 
-[Connessioni]
+Connessioni\
 La seconda modalità di navigazione permette di visualizzare i progetti attraverso una mappa relazionale.
 Ogni progetto viene rappresentato da un cerchio. La dimensione del cerchio varia in base alla quantità di tag che quel progetto ha in comune con gli altri: più un progetto condivide tag con il resto dell’archivio, più viene rappresentato in modo visivamente rilevante.
 La disposizione dei cerchi non è casuale: i progetti con più tag in comune tendono ad avvicinarsi tra loro, creando gruppi tematici. In questo modo l’utente può individuare rapidamente quali progetti sono più collegati, quali temi ricorrono con maggiore frequenza e quali contenuti occupano una posizione più centrale all’interno dell’archivio.
 In basso troviamo i 10 tag più utilizzati, che una volta cliccato su uno di esso, quesat lista si aggiorna mostrando,a loro volta, i 10 tag piu utilizzati di quei progetti selezionati.
 Questa visualizzazione trasforma l’archivio in una rete esplorabile, dove la relazione tra i progetti diventa parte dell’esperienza di navigazione.\
 
-[<img src="doc/Connections.png" width="500" alt="Magic trick">]()
+[<img src="doc/Connections.png" width="500" alt="Magic trick">]()\
 
 
 ## Tecnologia usata
-[Gestione]
+Gestione\
 Tutti i progetti dell'archivio sono raccolti in un dataset JSON. Ogni elemento contiene le informazioni necessarie per la visualizzazione e per la generazione delle connessioni tra i contenuti.
 ```JavaScript
 {
@@ -68,7 +68,7 @@ Tutti i progetti dell'archivio sono raccolti in un dataset JSON. Ogni elemento c
 ```
 I tag rappresentano l'elemento centrale del sistema, poiché vengono utilizzati sia per il filtraggio dei contenuti sia per la costruzione delle relazioni tra i progetti.\
 
-[Archivio]
+Archivio\
 La pagina principale viene costruita dinamicamente a partire dal dataset. Per ogni progetto viene generata una card contenente le principali informazioni e i relativi tag.
 ```JavaScript
 projects.forEach(project => {
@@ -92,7 +92,7 @@ projects.forEach(project => {
 ```
 Questo approccio permette di aggiornare facilmente l'archivio aggiungendo nuovi elementi al dataset senza intervenire sulla struttura dell'interfaccia.\
 
-[Connessioni]
+Connessioni\
 La modalità Explore genera automaticamente una rete di relazioni confrontando i tag condivisi tra i progetti presenti nell'archivio.
 ```JavaScript
 const links = [];
@@ -120,8 +120,9 @@ projects.forEach(source => {
 Il numero di tag condivisi determina la forza della relazione tra due progetti. Queste informazioni vengono successivamente utilizzate da D3.js per costruire una visualizzazione relazionale in cui i progetti più affini tendono a posizionarsi vicini, mentre quelli meno correlati occupano aree più distanti della rete.
 ## Target e contesto d’uso
 Il progetto è rivolto a:
-- pubblico generalista
-- appassionati di spazio
-- utenti curiosi interessati alla tecnologia e alla storia
-Il contesto principale è la navigazione web, in particolare su desktop, dove è possibile esplorare con maggiore precisione i dettagli delle tute e interagire con i punti informativi.
-L’esperienza è pensata come esplorazione libera, associata ad una timeline.
+- pubblico generalista;
+- studenti;
+- appassionati di spazio.
+
+Il contesto principale è la navigazione web, che consente di esplorare contemporaneamente archivio e rete di connessioni.
+L'esperienza è pensata come esplorazione libera e come strumento per favorire la scoperta di relazioni tra contenuti appartenenti allo stesso ecosistema informativo.
