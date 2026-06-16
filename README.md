@@ -42,7 +42,7 @@ La disposizione dei cerchi non è casuale: i progetti con più tag in comune ten
 In basso troviamo i 10 tag più utilizzati, che una volta cliccato su uno di esso, quesat lista si aggiorna mostrando,a loro volta, i 10 tag piu utilizzati di quei progetti selezionati.
 Questa visualizzazione trasforma l’archivio in una rete esplorabile, dove la relazione tra i progetti diventa parte dell’esperienza di navigazione.\
 
-[<img src="doc/Connessioni.png" width="500" alt="Magic trick">]()
+[<img src="doc/Connections.png" width="500" alt="Magic trick">]()
 
 
 ## Tecnologia usata
