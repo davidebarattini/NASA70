@@ -4,7 +4,7 @@ Docenti: A. Gysin, G. Profeta
 
 Progetto 1: NASA 70 Archive
 
-# Spacesuit evolution
+# NASA 70
 Autore: Davide Barattini \
 [NASA 70](https://davidebarattini.github.io/NASA70/)
 
@@ -12,7 +12,7 @@ Autore: Davide Barattini \
 ## Introduzione e tema
 NASA 70 Archive è una piattaforma web progettata per celebrare il settantesimo anniversario della NASA attraverso una raccolta di progetti realizzati a partire dagli archivi digitali dell'agenzia spaziale.
 L'obiettivo del progetto è offrire un sistema di esplorazione che permetta agli utenti di scoprire relazioni tra contenuti diversi, superando una semplice organizzazione cronologica o alfabetica.
-Attraverso l'utilizzo di tag e connessioni semantiche, la piattaforma mette in evidenza i legami esistenti tra i progetti, consentendo di navigare l'archivio seguendo temi, tecnologie, missioni e argomenti condivisi.
+Attraverso l'utilizzo di tag la piattaforma mette in evidenza i legami esistenti tra i progetti, consentendo di navigare l'archivio seguendo temi, tecnologie, missioni e argomenti condivisi.
 Il progetto trasforma quindi l'archivio in una rete di conoscenze interconnesse, favorendo una modalità di scoperta libera e non lineare.
 
 
