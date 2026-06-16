@@ -46,26 +46,78 @@ Questa visualizzazione trasforma l’archivio in una rete esplorabile, dove la r
 
 
 ## Tecnologia usata
-Il progetto è sviluppato come prototipo web utilizzando HTML, CSS e JavaScript, in cui i contenuti e la struttura dell’interfaccia sono generati a partire da dati definiti in codice. \
-Struttura dei dati \
-Le informazioni relative alle tute spaziali, alle sezioni e alla navigazione sono organizzate in strutture dati JavaScript, in particolare array di oggetti.
-L’intero flusso dell’esperienza è definito all’interno dell’array slides, che rappresenta la sequenza delle schermate dell’applicazione. Ogni slide è identificata da un type (intro, section, suit) e contiene proprietà specifiche come titolo, testi, immagini e contenuti HTML.
-Definizione degli hotspot
+[Gestione]
+Tutti i progetti dell'archivio sono raccolti in un dataset JSON. Ogni elemento contiene le informazioni necessarie per la visualizzazione e per la generazione delle connessioni tra i contenuti.
 ```JavaScript
-pins: [
-  { n: 1, x: "52%", y: "22%", panelId: "casco" },
-  { n: 2, x: "49%", y: "47%", panelId: "tubo_ossigeno" },
-  { n: 3, x: "40%", y: "70%", panelId: "giunture" },
-]
+{
+  id: "spacesuit-evolution",
+  title: "Spacesuit Evolution",
+  author: "Davide Barattini",
+  year: "2026",
+  description:
+    "Interactive exploration of NASA spacesuits throughout different missions.",
+  image: "img/spacesuit.jpg",
+  tags: [
+    "spacesuits",
+    "apollo",
+    "history",
+    "technology",
+    "exploration"
+  ]
+}
 ```
-Creazione dei bottoni
-```JavaScript
-const btn = el("button", "pin", {
-  style: `left:${p.x};top:${p.y};`,
-  "data-panel-id": p.panelId,
-}); "40%", y: "70%", panelId: "giunture" },
-```
+I tag rappresentano l'elemento centrale del sistema, poiché vengono utilizzati sia per il filtraggio dei contenuti sia per la costruzione delle relazioni tra i progetti.\
 
+[Archivio]
+La pagina principale viene costruita dinamicamente a partire dal dataset. Per ogni progetto viene generata una card contenente le principali informazioni e i relativi tag.
+```JavaScript
+projects.forEach(project => {
+  const card = document.createElement("article");
+  card.className = "project-card";
+
+  card.innerHTML = `
+    <img src="${project.image}" alt="${project.title}">
+    <h3>${project.title}</h3>
+    <p>${project.author}</p>
+    <p>${project.description}</p>
+    <div class="tags">
+      ${project.tags.map(tag =>
+        `<span>${tag}</span>`
+      ).join("")}
+    </div>
+  `;
+
+  archiveGrid.appendChild(card);
+});
+```
+Questo approccio permette di aggiornare facilmente l'archivio aggiungendo nuovi elementi al dataset senza intervenire sulla struttura dell'interfaccia.\
+
+[Connessioni]
+La modalità Explore genera automaticamente una rete di relazioni confrontando i tag condivisi tra i progetti presenti nell'archivio.
+```JavaScript
+const links = [];
+
+projects.forEach(source => {
+  projects.forEach(target => {
+
+    if (source.id === target.id) return;
+
+    const sharedTags = source.tags.filter(tag =>
+      target.tags.includes(tag)
+    );
+
+    if (sharedTags.length > 0) {
+      links.push({
+        source: source.id,
+        target: target.id,
+        weight: sharedTags.length
+      });
+    }
+
+  });
+});
+```
+Il numero di tag condivisi determina la forza della relazione tra due progetti. Queste informazioni vengono successivamente utilizzate da D3.js per costruire una visualizzazione relazionale in cui i progetti più affini tendono a posizionarsi vicini, mentre quelli meno correlati occupano aree più distanti della rete.
 ## Target e contesto d’uso
 Il progetto è rivolto a:
 - pubblico generalista
