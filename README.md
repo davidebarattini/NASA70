@@ -23,24 +23,24 @@ La modalità Connessioni si ispira ai sistemi di network visualization, vista in
 
 
 ## Design dell’interfaccia e modalità di interazione
-[<img src="doc/Video.gif" width="500" alt="Video Schermata">]()\
-L'esperienza è suddivisa in due modalità principali.\
+[<img src="doc/Video.gif" width="500" alt="Video Schermata">]()
+L'esperienza è suddivisa in due modalità principali.
 ### Archivio
 La prima schermata presenta tutti i progetti sotto forma di archivio consultabile.
 Ogni progetto include:
 immagine di anteprima, titolo, autore, anno di pubblicazione, descrizione
 L'utente può ordinare e cercare i progetti per individuare rapidamente contenuti di interesse.\
 
-[<img src="doc/Project_List.png" width="500" alt="Lista Progetti">]()\
+[<img src="doc/Project_List.png" width="500" alt="Lista Progetti">]()
 
 ### Connessioni
 La seconda modalità di navigazione permette di visualizzare i progetti attraverso una mappa relazionale.
 Ogni progetto viene rappresentato da un cerchio. La dimensione del cerchio varia in base alla quantità di tag che quel progetto ha in comune con gli altri: più un progetto condivide tag con il resto dell’archivio, più viene rappresentato in modo visivamente rilevante.
 La disposizione dei cerchi non è casuale: i progetti con più tag in comune tendono ad avvicinarsi tra loro, creando gruppi tematici. In questo modo l’utente può individuare rapidamente quali progetti sono più collegati, quali temi ricorrono con maggiore frequenza e quali contenuti occupano una posizione più centrale all’interno dell’archivio.
 In basso troviamo i 10 tag più utilizzati, che una volta cliccato su uno di esso, quesat lista si aggiorna mostrando,a loro volta, i 10 tag piu utilizzati di quei progetti selezionati.
-Questa visualizzazione trasforma l’archivio in una rete esplorabile, dove la relazione tra i progetti diventa parte dell’esperienza di navigazione.\
+Questa visualizzazione trasforma l’archivio in una rete esplorabile, dove la relazione tra i progetti diventa parte dell’esperienza di navigazione.
 
-[<img src="doc/Connections.png" width="500" alt="Connessioni">]()\
+[<img src="doc/Connections.png" width="500" alt="Connessioni">]()
 
 
 ## Tecnologia usata
@@ -64,7 +64,7 @@ Tutti i progetti dell'archivio sono raccolti in un dataset JSON. Ogni elemento c
   ]
 }
 ```
-I tag rappresentano l'elemento centrale del sistema, poiché vengono utilizzati sia per il filtraggio dei contenuti sia per la costruzione delle relazioni tra i progetti.\
+I tag rappresentano l'elemento centrale del sistema, poiché vengono utilizzati sia per il filtraggio dei contenuti sia per la costruzione delle relazioni tra i progetti.
 
 ### Archivio
 La pagina principale viene costruita dinamicamente a partire dal dataset. Per ogni progetto viene generata una card contenente le principali informazioni e i relativi tag.
@@ -88,7 +88,7 @@ projects.forEach(project => {
   archiveGrid.appendChild(card);
 });
 ```
-Questo approccio permette di aggiornare facilmente l'archivio aggiungendo nuovi elementi al dataset senza intervenire sulla struttura dell'interfaccia.\
+Questo approccio permette di aggiornare facilmente l'archivio aggiungendo nuovi elementi al dataset senza intervenire sulla struttura dell'interfaccia.
 
 ### Connessioni
 La modalità Explore genera automaticamente una rete di relazioni confrontando i tag condivisi tra i progetti presenti nell'archivio.
