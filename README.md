@@ -17,13 +17,13 @@ Il progetto trasforma quindi l'archivio in una rete di conoscenze interconnesse,
 
 
 ## Riferimenti progettuali
-[<img src="doc/network.jpg" width="200" alt="Network">]()
+[<img src="doc/network.jpg" width="200" alt="Network">]()\
 NASA 70 Archive prende ispirazione dalle piattaforme di archiviazione digitale e dalle visualizzazioni relazionali utilizzate per esplorare grandi quantità di informazioni.
 La modalità Connessioni si ispira ai sistemi di network visualization, vista in aula, che permettono di rappresentare visivamente i legami tra elementi diversi. Questo approccio consente di evidenziare temi ricorrenti, contenuti correlati e percorsi di esplorazione alternativi.
 
 
 ## Design dell’interfaccia e modalità di interazione
-[<img src="doc/Video.gif" width="500" alt="Video Schermata">]()
+[<img src="doc/Video.gif" width="500" alt="Video Schermata">]()\
 L'esperienza è suddivisa in due modalità principali.\
 Archivio\
 La prima schermata presenta tutti i progetti sotto forma di archivio consultabile.
