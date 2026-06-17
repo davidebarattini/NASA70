@@ -502,13 +502,19 @@ function previewPathsFromProject(p) {
   return out;
 }
 
+/**
+ * Versione asset immagini: cambiala quando aggiorni i file in `Preview/`
+ * mantenendo lo stesso nome, così i browser ricaricano la nuova versione.
+ */
+const PREVIEW_ASSET_VERSION = "20260617";
+
 /** URL sicuro per `<img>` / SVG `<image>` (spazi, `#`, ecc. nel nome file). */
 export function getPreviewHref(path) {
   if (!path || typeof path !== "string") return "";
   const i = path.lastIndexOf("/");
   const dir = i >= 0 ? path.slice(0, i + 1) : "";
   const file = i >= 0 ? path.slice(i + 1) : path;
-  return dir + encodeURIComponent(file);
+  return `${dir}${encodeURIComponent(file)}?v=${PREVIEW_ASSET_VERSION}`;
 }
 
 /**
