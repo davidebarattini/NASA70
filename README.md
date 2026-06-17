@@ -26,6 +26,7 @@ Figma e Framer hanno invece influenzato la struttura dell'interfaccia, basata su
 
 
 ## Design dell’interfaccia e modalità di interazione
+[<img src="doc/Video.gif" width="500" alt="Video Schermata">]()
 L'esperienza è suddivisa in due modalità principali.\
 Archivio\
 La prima schermata presenta tutti i progetti sotto forma di archivio consultabile.
