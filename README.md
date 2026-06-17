@@ -17,12 +17,9 @@ Il progetto trasforma quindi l'archivio in una rete di conoscenze interconnesse,
 
 
 ## Riferimenti progettuali
-[<img src="doc/Figma.jpg" width="200" alt="Supplemento al dizionario italiano">]()
-[<img src="doc/Framer.jpg" width="200" alt="Supplemento al dizionario italiano">]()
-[<img src="doc/Apple.png" width="200" alt="Supplemento al dizionario italiano">]()\
-Per la progettazione dell'interfaccia sono stati presi come riferimento diversi prodotti digitali esistenti.
-Apple ha ispirato il sistema di hotspot interattivi, utilizzati per evidenziare e approfondire specifici elementi delle tute spaziali direttamente all'interno della visualizzazione.
-Figma e Framer hanno invece influenzato la struttura dell'interfaccia, basata su un layout a tre colonne che separa navigazione, contenuto principale e pannello di approfondimento, favorendo un'esplorazione chiara e organizzata delle informazioni.
+[<img src="doc/network.jpg" width="200" alt="Network">]()
+NASA 70 Archive prende ispirazione dalle piattaforme di archiviazione digitale e dalle visualizzazioni relazionali utilizzate per esplorare grandi quantità di informazioni.
+La modalità Connessioni si ispira ai sistemi di network visualization, vista in aula, che permettono di rappresentare visivamente i legami tra elementi diversi. Questo approccio consente di evidenziare temi ricorrenti, contenuti correlati e percorsi di esplorazione alternativi.
 
 
 ## Design dell’interfaccia e modalità di interazione
@@ -34,7 +31,7 @@ Ogni progetto include:
 immagine di anteprima, titolo, autore, anno di pubblicazione, descrizione
 L'utente può ordinare e cercare i progetti per individuare rapidamente contenuti di interesse.\
 
-[<img src="doc/Project_List.png" width="500" alt="Magic trick">]()\
+[<img src="doc/Project_List.png" width="500" alt="Lista Progetti">]()\
 
 Connessioni\
 La seconda modalità di navigazione permette di visualizzare i progetti attraverso una mappa relazionale.
@@ -43,7 +40,7 @@ La disposizione dei cerchi non è casuale: i progetti con più tag in comune ten
 In basso troviamo i 10 tag più utilizzati, che una volta cliccato su uno di esso, quesat lista si aggiorna mostrando,a loro volta, i 10 tag piu utilizzati di quei progetti selezionati.
 Questa visualizzazione trasforma l’archivio in una rete esplorabile, dove la relazione tra i progetti diventa parte dell’esperienza di navigazione.\
 
-[<img src="doc/Connections.png" width="500" alt="Magic trick">]()\
+[<img src="doc/Connections.png" width="500" alt="Connessioni">]()\
 
 
 ## Tecnologia usata
