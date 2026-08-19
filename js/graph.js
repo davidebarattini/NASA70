@@ -24,6 +24,21 @@ function thumbClipId(d) {
   return `thumbc-${d.id}`;
 }
 
+/** Zoom extra per miniature circolari (nodo del grafo) dove il soggetto
+ *  occupa solo una piccola parte dell'immagine sorgente: chiave = nome file
+ *  in `previewPath`, valore = fattore di ingrandimento (1 = nessuno). */
+const THUMB_ZOOM_BY_PREVIEW = {
+  "lunararchive_1.jpg": 1.8,
+};
+
+function thumbZoomFor(d) {
+  const path = String(d?.previewPath || "");
+  for (const key in THUMB_ZOOM_BY_PREVIEW) {
+    if (path.includes(key)) return THUMB_ZOOM_BY_PREVIEW[key];
+  }
+  return 1;
+}
+
 function seedNodes(nodes, width, height, spread, usableHeight, yOffset) {
   const cx = width / 2;
   const h = Number.isFinite(usableHeight) && usableHeight > 0 ? usableHeight : height;
@@ -62,6 +77,7 @@ export function createGraphController(options) {
   const gRoot = d3.select(svg).select("#zoom-layer");
   const gLinks = gRoot.select("#links-layer");
   const gNodes = gRoot.select("#nodes-layer");
+  const gLinksHighlight = gRoot.select("#links-highlight-layer");
 
   let width = svg.clientWidth || window.innerWidth;
   let height = svg.clientHeight || window.innerHeight;
@@ -103,6 +119,58 @@ export function createGraphController(options) {
   /** @type {d3.Simulation<any, undefined>|null} */
   let simulation = null;
   let linkSel = gLinks.selectAll("line.link");
+  /** Linee dinamiche (nodo attivo → ogni progetto con tag in comune), non
+   *  limitate al sottoinsieme di archi statici del grafo. */
+  let highlightLinkSel = gLinksHighlight.selectAll("line.focus-link");
+  /** Pallini animati sulle linee: uno per ogni tag condiviso, in loop. */
+  let highlightDotSel = gLinksHighlight.selectAll("circle.focus-link__dot");
+  let dotAnimRafId = null;
+  // Velocità costante in px/ms: linee lunghe e corte "scorrono" alla stessa
+  // velocità percepita, invece di avere tutte lo stesso tempo di giro.
+  const DOT_SPEED_PX_PER_MS = 0.045;
+  // Distanza fissa (px) tra i pallini di uno stesso gruppo: viaggiano vicini,
+  // in coppia/tripletta, invece di essere sparsi lungo tutta la linea.
+  const DOT_PACK_GAP_PX = 7;
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function positionDots(now) {
+    highlightDotSel.each(function (d) {
+      const dx = d.target.x - d.source.x;
+      const dy = d.target.y - d.source.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const gapT = DOT_PACK_GAP_PX / dist;
+      let t;
+      if (prefersReducedMotion) {
+        t = 0.5 + (d.index - (d.count - 1) / 2) * gapT;
+      } else {
+        // Moto a "va e vieni" (triangolare) invece che a giro con reset: la
+        // posizione è sempre continua, senza il salto istantaneo che si
+        // vedeva quando un pallino chiudeva il giro e ripartiva dall'inizio
+        // (specialmente vistoso quando molti collegamenti venivano
+        // ricreati insieme, come al click su un progetto).
+        const period = (dist / DOT_SPEED_PX_PER_MS) * 2;
+        const raw = (now / period + d.index * gapT) % 1;
+        const phase = raw < 0 ? raw + 1 : raw;
+        t = phase <= 0.5 ? phase * 2 : 2 - phase * 2;
+      }
+      this.setAttribute("cx", d.source.x + dx * t);
+      this.setAttribute("cy", d.source.y + dy * t);
+    });
+  }
+
+  function stepDots(now) {
+    dotAnimRafId = null;
+    if (highlightDotSel.empty()) return;
+    positionDots(now);
+    if (!prefersReducedMotion) dotAnimRafId = requestAnimationFrame(stepDots);
+  }
+
+  function ensureDotAnim() {
+    if (dotAnimRafId == null && !highlightDotSel.empty() && !prefersReducedMotion) {
+      dotAnimRafId = requestAnimationFrame(stepDots);
+    }
+  }
+
   let nodeSel = gNodes.selectAll("g.graph-node");
   // Zoom solo scala (no pan): più stabile del d3.zoom completo.
   let viewScale = 1;
@@ -117,6 +185,8 @@ export function createGraphController(options) {
   let focusById = () => {};
   /** @type {() => void} */
   let clearFocusFn = () => {};
+  /** @type {(originId: string|null, keepIds: Set<string>|null) => void} */
+  let renderHighlightLinksFn = () => {};
   let pinnedNodeId = null;
   /** Set di id ancora interattivi quando un progetto è selezionato (null = nessuna selezione). */
   let selectionAllowedIds = null;
@@ -207,7 +277,12 @@ export function createGraphController(options) {
     const thumbR = 12.2 * nodeScale * f * inactiveFactor;
     const ringR = thumbR + 0.6;
     const hitR = 29 * nodeScale * Math.max(1, f) * inactiveFactor;
-    return { ringR, thumbR, hitR, thumbD: thumbR * 2 };
+    // thumbBoxR: dimensione reale dell'immagine dentro il cerchio. Più
+    // grande di thumbR quando il progetto ha uno zoom extra (vedi
+    // THUMB_ZOOM_BY_PREVIEW): il cerchio visibile (thumbR) resta invariato,
+    // solo l'immagine al suo interno viene ingrandita/ritagliata di più.
+    const thumbBoxR = thumbR * thumbZoomFor(d);
+    return { ringR, thumbR, hitR, thumbD: thumbR * 2, thumbBoxR, thumbBoxD: thumbBoxR * 2 };
   }
 
   function getModel() {
@@ -295,6 +370,15 @@ export function createGraphController(options) {
         .attr("x2", (d) => d.target.x)
         .attr("y2", (d) => d.target.y);
     }
+
+    if (!highlightLinkSel.empty()) {
+      highlightLinkSel
+        .attr("x1", (d) => d.source.x)
+        .attr("y1", (d) => d.source.y)
+        .attr("x2", (d) => d.target.x)
+        .attr("y2", (d) => d.target.y);
+    }
+    if (!highlightDotSel.empty()) positionDots(performance.now());
   }
 
   function rebuild() {
@@ -315,12 +399,9 @@ export function createGraphController(options) {
     // Adiacenze per highlight in hover/focus.
     /** @type {Map<string, Set<string>>} */
     const neighbors = new Map();
-    /** @type {Map<string, Set<string>>} */
-    const incidentLinkKeys = new Map();
 
     for (const n0 of nodes) {
       neighbors.set(n0.id, new Set([n0.id]));
-      incidentLinkKeys.set(n0.id, new Set());
     }
     for (const l of linkObjs) {
       const a = l.source?.id;
@@ -328,11 +409,6 @@ export function createGraphController(options) {
       if (!a || !b) continue;
       neighbors.get(a)?.add(b);
       neighbors.get(b)?.add(a);
-      const key = `${a}--${b}`;
-      incidentLinkKeys.get(a)?.add(key);
-      incidentLinkKeys.get(b)?.add(key);
-      // salva sul link per lookup veloce
-      l._k = key;
     }
     // Esponiamo le adiacenze (gli stessi "collegamenti" usati in hover) così
     // la selezione al click usa esattamente lo stesso insieme di progetti.
@@ -409,15 +485,26 @@ export function createGraphController(options) {
       .data(nodes, (d) => d.id)
       .join(
         (enter) => {
+          // userSpaceOnUse (default): il cerchio di ritaglio ha un raggio
+          // fisso (thumbR) nello spazio del nodo, indipendente dalla
+          // dimensione reale dell'immagine — così l'immagine può essere
+          // più grande del cerchio visibile (zoom, vedi thumbBoxR) senza
+          // che il cerchio stesso si ingrandisca.
           const cp = enter
             .append("clipPath")
             .attr("class", "node-thumb-clip")
-            .attr("id", (d) => thumbClipId(d))
-            .attr("clipPathUnits", "objectBoundingBox");
-          cp.append("circle").attr("cx", 0.5).attr("cy", 0.5).attr("r", 0.5);
+            .attr("id", (d) => thumbClipId(d));
+          cp.append("circle")
+            .attr("cx", 0)
+            .attr("cy", 0)
+            .attr("r", (d) => nodeDims(d).thumbR);
           return cp;
         },
-        (update) => update.attr("id", (d) => thumbClipId(d)),
+        (update) => {
+          update.attr("id", (d) => thumbClipId(d));
+          update.select("circle").attr("r", (d) => nodeDims(d).thumbR);
+          return update;
+        },
         (exit) => exit.remove()
       );
 
@@ -465,10 +552,10 @@ export function createGraphController(options) {
             .attr("stroke-opacity", 0.72);
           g.append("image")
             .attr("class", "graph-node__thumb")
-            .attr("x", (d) => -nodeDims(d).thumbR)
-            .attr("y", (d) => -nodeDims(d).thumbR)
-            .attr("width", (d) => nodeDims(d).thumbD)
-            .attr("height", (d) => nodeDims(d).thumbD)
+            .attr("x", (d) => -nodeDims(d).thumbBoxR)
+            .attr("y", (d) => -nodeDims(d).thumbBoxR)
+            .attr("width", (d) => nodeDims(d).thumbBoxD)
+            .attr("height", (d) => nodeDims(d).thumbBoxD)
             .attr("preserveAspectRatio", "xMidYMid slice")
             .attr("clip-path", (d) => `url(#${thumbClipId(d)})`)
             .each(function (d) {
@@ -493,10 +580,10 @@ export function createGraphController(options) {
           update.select("circle.graph-node__ring").attr("r", (d) => nodeDims(d).ringR);
           update
             .select("image.graph-node__thumb")
-            .attr("x", (d) => -nodeDims(d).thumbR)
-            .attr("y", (d) => -nodeDims(d).thumbR)
-            .attr("width", (d) => nodeDims(d).thumbD)
-            .attr("height", (d) => nodeDims(d).thumbD);
+            .attr("x", (d) => -nodeDims(d).thumbBoxR)
+            .attr("y", (d) => -nodeDims(d).thumbBoxR)
+            .attr("width", (d) => nodeDims(d).thumbBoxD)
+            .attr("height", (d) => nodeDims(d).thumbBoxD);
           update.select("circle.graph-node__hit").attr("r", (d) => nodeDims(d).hitR);
           update
             .select("image.graph-node__thumb")
@@ -519,6 +606,102 @@ export function createGraphController(options) {
 
     nodeSel.classed("graph-node--inactive", (d) => !!d._inactive);
 
+    function sharedTagCount(a, b) {
+      const tagsA = new Set(
+        (a.tagsNorm || []).map((t) => String(t).trim().toLowerCase()).filter(Boolean)
+      );
+      if (!tagsA.size) return 0;
+      const tagsB = new Set(
+        (b.tagsNorm || []).map((t) => String(t).trim().toLowerCase()).filter(Boolean)
+      );
+      let count = 0;
+      for (const t of tagsA) if (tagsB.has(t)) count++;
+      return count;
+    }
+
+    // Rende linea/alone + pallini per un elenco di coppie {id,source,target,count}.
+    // Condivisa sia dal focus su singolo nodo (hover/click) sia dalla vista
+    // "tutte le coppie attive insieme" (mini-grafo decorativo della hero).
+    function renderHighlightPairs(pairs) {
+      highlightLinkSel = gLinksHighlight
+        .selectAll("line.focus-link")
+        .data(pairs, (d) => d.id)
+        .join(
+          (enter) => enter.append("line").attr("class", "focus-link"),
+          (update) => update,
+          (exit) => exit.remove()
+        );
+      highlightLinkSel
+        .attr("x1", (d) => d.source.x)
+        .attr("y1", (d) => d.source.y)
+        .attr("x2", (d) => d.target.x)
+        .attr("y2", (d) => d.target.y);
+
+      const dots = [];
+      for (const pair of pairs) {
+        for (let i = 0; i < pair.count; i++) {
+          dots.push({
+            key: `${pair.id}-${i}`,
+            source: pair.source,
+            target: pair.target,
+            index: i,
+            count: pair.count,
+          });
+        }
+      }
+      highlightDotSel = gLinksHighlight
+        .selectAll("circle.focus-link__dot")
+        .data(dots, (d) => d.key)
+        .join(
+          (enter) => enter.append("circle").attr("class", "focus-link__dot").attr("r", 2.2),
+          (update) => update,
+          (exit) => exit.remove()
+        );
+      positionDots(performance.now());
+      ensureDotAnim();
+    }
+
+    // Disegna una linea/alone dal nodo `originId` verso ognuno degli id in
+    // `keepIds` (tutti i progetti ancora attivi, non solo quelli con un arco
+    // statico precalcolato): così la linea collega sempre TUTTI i progetti
+    // che restano attivi in quel momento. Sopra ogni linea, tanti pallini
+    // animati in loop quanti sono i tag condivisi con quel progetto.
+    function renderHighlightLinks(originId, keepIds) {
+      const origin = originId ? nodes.find((x) => x.id === originId) : null;
+      const pairs = [];
+      if (origin && keepIds) {
+        for (const id of keepIds) {
+          if (id === originId) continue;
+          const target = nodes.find((x) => x.id === id);
+          if (target) {
+            const count = Math.max(1, sharedTagCount(origin, target));
+            pairs.push({ id, source: origin, target, count });
+          }
+        }
+      }
+      renderHighlightPairs(pairs);
+    }
+
+    // Vista "tutte le coppie attive insieme": ogni coppia di progetti con
+    // almeno un tag in comune ottiene la propria linea/alone + pallini,
+    // simultaneamente. Usata nel mini-grafo decorativo della hero (Home).
+    function renderAllHighlightLinks() {
+      const pairs = [];
+      const seen = new Set();
+      for (const a of nodes) {
+        if (a._inactive) continue;
+        for (const b of nodes) {
+          if (b._inactive || a.id === b.id) continue;
+          const key = [String(a.id), String(b.id)].sort().join("--");
+          if (seen.has(key)) continue;
+          seen.add(key);
+          const count = sharedTagCount(a, b);
+          if (count > 0) pairs.push({ id: key, source: a, target: b, count });
+        }
+      }
+      renderHighlightPairs(pairs);
+    }
+
     function clearFocus() {
       if (pinnedNodeId) {
         // se c'è un pin attivo, non perdere l'evidenziazione
@@ -529,8 +712,7 @@ export function createGraphController(options) {
       nodeSel.classed("graph-node--focus", false);
       nodeSel.classed("graph-node--pinned", false);
       nodeSel.classed("graph-node--neighbor", false);
-      linkSel.classed("link--dim", false);
-      linkSel.classed("link--active", false);
+      renderHighlightLinks(null, null);
     }
 
     function tagRelatedIds(nodeId) {
@@ -556,7 +738,6 @@ export function createGraphController(options) {
     function applyFocus(node) {
       const activeId = pinnedNodeId || node?.id;
       if (!activeId) return;
-      const keepLinks = incidentLinkKeys.get(activeId) || new Set();
       const keep = tagRelatedIds(activeId);
       const isPinned = !!pinnedNodeId;
 
@@ -564,11 +745,11 @@ export function createGraphController(options) {
       nodeSel.classed("graph-node--focus", (d) => !isPinned && d.id === node.id);
       nodeSel.classed("graph-node--pinned", (d) => isPinned && d.id === pinnedNodeId);
       nodeSel.classed("graph-node--neighbor", false);
-      linkSel.classed("link--dim", (l) => !keepLinks.has(l._k));
-      linkSel.classed("link--active", false);
+      renderHighlightLinks(activeId, keep);
     }
 
     clearFocusFn = clearFocus;
+    renderHighlightLinksFn = renderHighlightLinks;
     focusById = (id) => {
       if (!id) return clearFocus();
       const n = nodes.find((x) => x.id === id);
@@ -791,6 +972,10 @@ export function createGraphController(options) {
     nodeSel.call(drag(simulation));
 
     applyVizLayers();
+
+    // Nel mini-grafo decorativo (hero Home) non ci sono hover/click: mostra
+    // subito tutte le coppie di progetti collegati, animate insieme.
+    if (decorative) renderAllHighlightLinks();
   }
 
   function resize() {
@@ -891,8 +1076,9 @@ export function createGraphController(options) {
             ? new Set(allowedIds.map(String))
             : null;
       const selId = selectedId != null ? String(selectedId) : null;
-      // Azzera eventuali evidenziazioni di collegamenti rimaste dall'hover
-      // precedente al click: la vista deve restare fissa e pulita.
+      // Azzera eventuali evidenziazioni rimaste dall'hover precedente al
+      // click, poi riapplica linee/alone per il progetto selezionato: la
+      // vista resta fissa mostrando solo i collegamenti di `selId`.
       clearFocusFn();
       if (nodeSel && !nodeSel.empty()) {
         nodeSel.classed("graph-node--off", (d) =>
@@ -902,6 +1088,7 @@ export function createGraphController(options) {
           selId != null && String(d.id) === selId,
         );
       }
+      renderHighlightLinksFn(selId, selId ? selectionAllowedIds : null);
     },
     clearSelection() {
       selectionAllowedIds = null;
@@ -909,6 +1096,7 @@ export function createGraphController(options) {
         nodeSel.classed("graph-node--off", false);
         nodeSel.classed("graph-node--selected", false);
       }
+      renderHighlightLinksFn(null, null);
     },
     // Id dei progetti collegati a `id` (gli stessi evidenziati in hover),
     // incluso `id` stesso.
@@ -985,11 +1173,20 @@ export function createGraphController(options) {
         tr.select("circle.graph-node__halo").attr("r", (d) => nodeDims(d).ringR * 1.5);
         tr.select("circle.graph-node__ring").attr("r", (d) => nodeDims(d).ringR);
         tr.select("image.graph-node__thumb")
-          .attr("x", (d) => -nodeDims(d).thumbR)
-          .attr("y", (d) => -nodeDims(d).thumbR)
-          .attr("width", (d) => nodeDims(d).thumbD)
-          .attr("height", (d) => nodeDims(d).thumbD);
+          .attr("x", (d) => -nodeDims(d).thumbBoxR)
+          .attr("y", (d) => -nodeDims(d).thumbBoxR)
+          .attr("width", (d) => nodeDims(d).thumbBoxD)
+          .attr("height", (d) => nodeDims(d).thumbBoxD);
         tr.select("circle.graph-node__hit").attr("r", (d) => nodeDims(d).hitR);
+        // I clipPath vivono in <defs>, fuori da nodeSel: aggiorna il raggio
+        // del cerchio di ritaglio in parallelo (stessa durata/easing).
+        d3.select(svg)
+          .select("defs")
+          .selectAll("clipPath.node-thumb-clip circle")
+          .transition()
+          .duration(FILTER_TRANSITION_MS)
+          .ease(d3.easeCubicInOut)
+          .attr("r", (d) => nodeDims(d).thumbR);
         nodeSel.classed("graph-node--inactive", (d) => !!d._inactive);
       }
 
@@ -1077,11 +1274,15 @@ export function createGraphController(options) {
       gNodes.selectAll("circle.graph-node__ring").attr("r", (d) => nodeDims(d).ringR);
       gNodes
         .selectAll("image.graph-node__thumb")
-        .attr("x", (d) => -nodeDims(d).thumbR)
-        .attr("y", (d) => -nodeDims(d).thumbR)
-        .attr("width", (d) => nodeDims(d).thumbD)
-        .attr("height", (d) => nodeDims(d).thumbD);
+        .attr("x", (d) => -nodeDims(d).thumbBoxR)
+        .attr("y", (d) => -nodeDims(d).thumbBoxR)
+        .attr("width", (d) => nodeDims(d).thumbBoxD)
+        .attr("height", (d) => nodeDims(d).thumbBoxD);
       gNodes.selectAll("circle.graph-node__hit").attr("r", (d) => nodeDims(d).hitR);
+      d3.select(svg)
+        .select("defs")
+        .selectAll("clipPath.node-thumb-clip circle")
+        .attr("r", (d) => nodeDims(d).thumbR);
     },
   };
 }

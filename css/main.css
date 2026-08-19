@@ -197,6 +197,9 @@ body {
 }
 
 .site-nav__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
   font-family: var(--font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.12em;
@@ -207,6 +210,54 @@ body {
   background: transparent;
   border: 0;
   transition: color var(--transition), text-decoration-color var(--transition);
+}
+
+.site-nav__linkParticles {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.site-nav__linkParticles span {
+  position: absolute;
+  width: 0.14rem;
+  height: 0.14rem;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 5px rgba(126, 184, 255, 0.85);
+  animation: exploreParticleDrift 2.8s ease-in-out infinite;
+}
+
+.site-nav__linkParticles span:nth-child(1) {
+  top: 8%;
+  left: 12%;
+  animation-delay: 0s;
+}
+
+.site-nav__linkParticles span:nth-child(2) {
+  top: 55%;
+  left: 62%;
+  animation-delay: 0.7s;
+}
+
+.site-nav__linkParticles span:nth-child(3) {
+  top: 68%;
+  left: 15%;
+  animation-delay: 1.4s;
+}
+
+.site-nav__linkParticles span:nth-child(4) {
+  top: 15%;
+  left: 68%;
+  animation-delay: 2.1s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-nav__linkParticles span {
+    animation: none;
+  }
 }
 
 .site-nav__link:hover {
@@ -324,14 +375,26 @@ body {
   stroke-opacity: 0.62;
 }
 
-.graph-svg .link--dim {
-  opacity: 0.08;
+/* Linee dinamiche disegnate dal nodo attivo (hover/click) verso OGNI
+   progetto che condivide almeno un tag — indipendenti dagli archi statici
+   del grafo, così collegano sempre tutti i progetti che restano attivi.
+   Stile alone/rete: traccia sottile molto trasparente, con tanti pallini
+   quanti sono i tag condivisi che viaggiano in loop lungo la linea (il
+   "passaggio dati"), posizionati via JS in graph.js. */
+.graph-svg .focus-link {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1;
+  stroke-opacity: 0.32;
+  stroke-linecap: round;
+  pointer-events: none;
+  filter: drop-shadow(0 0 4px rgba(126, 184, 255, 0.5));
 }
 
-.graph-svg .link--active {
-  opacity: 1;
-  stroke-opacity: 0.92;
-  stroke-width: 1.05;
+.graph-svg .focus-link__dot {
+  fill: var(--accent);
+  pointer-events: none;
+  filter: drop-shadow(0 0 3px rgba(126, 184, 255, 0.95));
 }
 
 .graph-node {
@@ -1529,13 +1592,61 @@ body {
 }
 
 .preview-panel__cta--primary {
-  color: var(--nasa-red);
-  text-decoration-color: rgba(252, 61, 33, 0.5);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.98);
+  text-decoration: none;
 }
 
 .preview-panel__cta--primary:hover {
-  color: var(--nasa-red-hover, var(--nasa-red));
-  text-decoration-color: var(--nasa-red);
+  color: #fff;
+}
+
+.preview-panel__ctaLabel {
+  position: relative;
+  display: inline-block;
+}
+
+.preview-panel__ctaLabel::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.25s ease;
+}
+
+.preview-panel__cta--primary:hover .preview-panel__ctaLabel::after,
+.preview-panel__cta--primary:focus-visible .preview-panel__ctaLabel::after {
+  transform: scaleX(1);
+}
+
+.preview-panel__ctaArrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 999px;
+  background: var(--nasa-red);
+  color: #fff;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.preview-panel__ctaArrow svg {
+  width: 0.62rem;
+  height: 0.62rem;
+}
+
+.preview-panel__cta--primary:hover .preview-panel__ctaArrow {
+  background: var(--nasa-red-hover);
+  transform: translateX(2px);
 }
 
 .preview-panel__actions {
@@ -1581,10 +1692,30 @@ body {
   margin-right: 0.15rem;
 }
 
-/* Tag in comune con almeno un altro progetto: in grassetto + colore pieno. */
-.preview-panel__tagShared {
+.preview-panel__sharedTags {
+  margin: 0.4rem 0;
+  padding: 0.65rem 0.85rem;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 4px 4px 0;
+  background: rgba(126, 184, 255, 0.1);
+}
+
+.preview-panel__sharedTagsLine {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.01em;
+  line-height: 1.55;
+  color: rgba(232, 234, 239, 0.82);
+}
+
+.preview-panel__sharedTagsHead {
+  color: var(--accent);
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.92);
+}
+
+.preview-panel__sharedTagsList {
+  text-transform: uppercase;
 }
 
 .preview-panel__tagsEmpty {
@@ -1944,28 +2075,58 @@ body {
   transform: scaleX(1);
 }
 
-.hero-nasa__ctaArrow {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.hero-nasa__ctaParticles {
+  position: relative;
+  display: inline-block;
+  flex: none;
   width: 2.4rem;
   height: 2.4rem;
+  transition: transform 0.18s ease;
+}
+
+.hero-nasa__ctaParticles span {
+  position: absolute;
+  width: 0.32rem;
+  height: 0.32rem;
   border-radius: 999px;
-  background: var(--nasa-red);
-  color: #fff;
-  transition: background 0.18s ease, transform 0.18s ease;
-  box-shadow: 0 6px 18px rgba(252, 61, 33, 0.32);
+  background: var(--accent);
+  box-shadow: 0 0 9px rgba(126, 184, 255, 0.85);
+  animation: exploreParticleDrift 2.8s ease-in-out infinite;
 }
 
-.hero-nasa__ctaArrow svg {
-  width: 1.2rem;
-  height: 1.2rem;
+.hero-nasa__ctaParticles span:nth-child(1) {
+  top: 8%;
+  left: 12%;
+  animation-delay: 0s;
 }
 
-.hero-nasa__cta:hover .hero-nasa__ctaArrow,
-.hero-nasa__cta:focus-visible .hero-nasa__ctaArrow {
-  background: var(--nasa-red-hover);
+.hero-nasa__ctaParticles span:nth-child(2) {
+  top: 55%;
+  left: 62%;
+  animation-delay: 0.7s;
+}
+
+.hero-nasa__ctaParticles span:nth-child(3) {
+  top: 68%;
+  left: 15%;
+  animation-delay: 1.4s;
+}
+
+.hero-nasa__ctaParticles span:nth-child(4) {
+  top: 15%;
+  left: 68%;
+  animation-delay: 2.1s;
+}
+
+.hero-nasa__cta:hover .hero-nasa__ctaParticles,
+.hero-nasa__cta:focus-visible .hero-nasa__ctaParticles {
   transform: translateX(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-nasa__ctaParticles span {
+    animation: none;
+  }
 }
 
 .hero-nasa__cta:focus-visible {
@@ -2107,7 +2268,7 @@ body {
   .hero-nasa__cta {
     font-size: 1.2rem;
   }
-  .hero-nasa__ctaArrow {
+  .hero-nasa__ctaParticles {
     width: 2.1rem;
     height: 2.1rem;
   }
@@ -2370,33 +2531,33 @@ body {
 }
 
 .explore-item__expand {
-  grid-column: 1 / span 2;
+  --expand-full: 30rem;
+  grid-column: 1;
   grid-row: 2;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 0fr;
   min-width: 0;
   overflow: hidden;
-  opacity: 0;
-  transition:
-    grid-template-rows 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0s,
-    opacity 0.5s ease 0s;
+  max-height: 3.35rem;
+  transition: max-height 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0s;
 }
 
 .explore-item__expandInner {
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
-  padding: 0 1rem 0 0;
-  transition: padding-top 0.5s ease 0s;
+  padding: 0.5rem 1rem 0.3rem 0;
 }
 
 .explore-item__desc {
-  margin: 0 0 0.85rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  margin: 0 0 1.4rem;
   font-size: 0.84rem;
   line-height: 1.65;
   color: rgba(232, 234, 239, 0.62);
+  overflow: hidden;
   overflow-wrap: break-word;
+  text-overflow: ellipsis;
+  transition: color var(--transition);
 }
 
 .explore-item__actions {
@@ -2408,28 +2569,132 @@ body {
 
 .explore-item__link {
   display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   cursor: pointer;
-  font-size: 0.58rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: 0.9rem;
+  text-transform: none;
   text-decoration: none;
   color: rgba(232, 234, 239, 0.48);
-  border-bottom: 1px solid rgba(232, 234, 239, 0.22);
+  border-bottom: none;
 }
 
 .explore-item__link:hover {
   color: rgba(232, 234, 239, 0.9);
-  border-bottom-color: rgba(232, 234, 239, 0.45);
+}
+
+.explore-item__linkLabel {
+  position: relative;
+  display: inline-block;
+}
+
+.explore-item__linkLabel::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.25s ease;
+}
+
+.explore-item__link:hover .explore-item__linkLabel::after,
+.explore-item__link:focus-visible .explore-item__linkLabel::after {
+  transform: scaleX(1);
 }
 
 .explore-item__link--primary {
-  color: var(--nasa-red);
-  border-bottom-color: rgba(252, 61, 33, 0.5);
+  color: rgba(255, 255, 255, 0.98);
 }
 
 .explore-item__link--primary:hover {
-  color: var(--nasa-red-hover, var(--nasa-red));
-  border-bottom-color: var(--nasa-red);
+  color: #fff;
+}
+
+.explore-item__linkArrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 999px;
+  background: var(--nasa-red);
+  color: #fff;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.explore-item__linkArrow svg {
+  width: 0.62rem;
+  height: 0.62rem;
+}
+
+.explore-item__link--primary:hover .explore-item__linkArrow {
+  background: var(--nasa-red-hover);
+  transform: translateX(2px);
+}
+
+.explore-item__linkParticles {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.explore-item__linkParticles span {
+  position: absolute;
+  width: 0.18rem;
+  height: 0.18rem;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(126, 184, 255, 0.85);
+  animation: exploreParticleDrift 2.8s ease-in-out infinite;
+}
+
+.explore-item__linkParticles span:nth-child(1) {
+  top: 8%;
+  left: 12%;
+  animation-delay: 0s;
+}
+
+.explore-item__linkParticles span:nth-child(2) {
+  top: 55%;
+  left: 62%;
+  animation-delay: 0.7s;
+}
+
+.explore-item__linkParticles span:nth-child(3) {
+  top: 68%;
+  left: 15%;
+  animation-delay: 1.4s;
+}
+
+.explore-item__linkParticles span:nth-child(4) {
+  top: 15%;
+  left: 68%;
+  animation-delay: 2.1s;
+}
+
+@keyframes exploreParticleDrift {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translate(3px, -4px) scale(1.4);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .explore-item__linkParticles span {
+    animation: none;
+  }
 }
 
 @media (hover: hover) {
@@ -2447,37 +2712,29 @@ body {
 
   .explore-item--open .explore-item__expand,
   .explore-item:hover .explore-item__expand {
-    grid-template-rows: 1fr;
-    opacity: 1;
-    transition-delay: 0.5s, 0.5s;
+    max-height: var(--expand-full);
+    transition-delay: 0.5s;
   }
 
-  .explore-item--open .explore-item__expandInner,
-  .explore-item:hover .explore-item__expandInner {
-    padding-top: 1rem;
-    transition-delay: 0.5s;
+  .explore-item--open .explore-item__desc,
+  .explore-item:hover .explore-item__desc {
+    display: block;
   }
 
   /* Click sull'immagine: apertura immediata, senza delay dell'hover. */
   .explore-item--open .explore-item__expand {
-    transition-delay: 0s, 0s;
-  }
-
-  .explore-item--open .explore-item__expandInner {
     transition-delay: 0s;
   }
 }
 
 @media (hover: none) {
   .explore-item__expand {
-    grid-template-rows: 1fr;
-    opacity: 1;
+    max-height: none;
     transition: none;
   }
 
-  .explore-item__expandInner {
-    padding-top: 0.65rem;
-    transition: none;
+  .explore-item__desc {
+    display: block;
   }
 }
 

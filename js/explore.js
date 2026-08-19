@@ -110,16 +110,52 @@ function renderExploreList(nodes, sortBy) {
               <div class="explore-item__actions">
                 ${
                   node.url
-                    ? `<a class="explore-item__link explore-item__link--primary mono" href="${escapeAttr(node.url)}" target="_blank" rel="noopener noreferrer">Apri progetto</a>`
+                    ? `<a class="explore-item__link explore-item__link--primary mono" href="${escapeAttr(node.url)}" target="_blank" rel="noopener noreferrer">
+                        <span class="explore-item__linkLabel">Open Project</span>
+                        <span class="explore-item__linkArrow" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" fill="none" focusable="false"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </span>
+                      </a>`
                     : ""
                 }
-                <a class="explore-item__link mono" href="explore.html?focus=${escapeAttr(node.id)}">Mostra collegamenti</a>
+                <a class="explore-item__link explore-item__link--secondary mono" href="explore.html?focus=${escapeAttr(node.id)}">
+                  <span class="explore-item__linkLabel">Show Connections</span>
+                  <span class="explore-item__linkParticles" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+                </a>
               </div>
             </div>
           </div>
         </li>`;
     })
     .join("");
+}
+
+/**
+ * L'altezza aperta di ".explore-item__expand" non può essere un valore fisso
+ * uguale per tutti (rende l'animazione a scatti quando il contenuto reale è
+ * molto più corto): misuriamo l'altezza naturale del testo completo di ogni
+ * card e la salviamo in --expand-full, usata dalla transizione CSS.
+ */
+function measureExpandHeights(listEl) {
+  if (!listEl) return;
+  listEl.querySelectorAll(".explore-item__expand").forEach((expand) => {
+    const desc = expand.querySelector(".explore-item__desc");
+    if (!desc) return;
+    const prevTransition = expand.style.transition;
+    const prevMaxHeight = expand.style.maxHeight;
+    const prevDescDisplay = desc.style.display;
+
+    expand.style.transition = "none";
+    expand.style.maxHeight = "none";
+    desc.style.display = "block";
+    const fullHeight = expand.scrollHeight;
+
+    expand.style.maxHeight = prevMaxHeight;
+    desc.style.display = prevDescDisplay;
+    expand.style.setProperty("--expand-full", `${fullHeight}px`);
+    void expand.offsetHeight;
+    expand.style.transition = prevTransition;
+  });
 }
 
 function setupListItemToggle(listEl) {
@@ -142,6 +178,20 @@ function setupListItemToggle(listEl) {
       item.classList.add("explore-item--open");
       media.setAttribute("aria-expanded", "true");
     }
+  });
+
+  // Un progetto può restare "aperto" in modo permanente (es. al ritorno da
+  // "Mostra collegamenti"): se si passa col mouse su un altro progetto,
+  // quello va chiuso, altrimenti risulterebbero aperti due insieme.
+  listEl.addEventListener("mouseover", (e) => {
+    const item = e.target.closest(".explore-item");
+    if (!item || !listEl.contains(item)) return;
+
+    listEl.querySelectorAll(".explore-item--open").forEach((el) => {
+      if (el === item) return;
+      el.classList.remove("explore-item--open");
+      el.querySelector(".explore-item__media")?.setAttribute("aria-expanded", "false");
+    });
   });
 }
 
@@ -199,6 +249,7 @@ function setupSortFilter({
     renderOptions();
     const visible = filterNodesBySearch(allNodes, searchQuery);
     listEl.innerHTML = renderExploreList(visible, selected);
+    measureExpandHeights(listEl);
   }
 
   function setOpen(open) {
@@ -230,6 +281,12 @@ function setupSortFilter({
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") setOpen(false);
+  });
+
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => measureExpandHeights(listEl), 150);
   });
 
   applySort();

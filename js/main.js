@@ -189,14 +189,9 @@ async function main() {
     );
   }
 
-  function tagsOfLockedProject() {
+  function lockedProjectNode() {
     if (!lockedPreviewId) return null;
-    const sel = fullModel.nodes.find((n) => n.id === lockedPreviewId);
-    if (!sel) return null;
-    const norms = (sel.tagsNorm || [])
-      .map((t) => String(t).trim().toLowerCase())
-      .filter(Boolean);
-    return norms.length ? new Set(norms) : null;
+    return fullModel.nodes.find((n) => n.id === lockedPreviewId) || null;
   }
 
   function showPreview(node, { locked = false } = {}) {
@@ -207,19 +202,31 @@ async function main() {
       lockedPreviewId = nid;
     }
     hoverPreviewId = nid;
-    // Mostra in grassetto i tag in comune col progetto selezionato (locked).
-    // Nessun highlight se non c'è ancora un progetto selezionato, o se il
-    // nodo che stiamo visualizzando È quello selezionato.
-    const lockedTags = tagsOfLockedProject();
+    // Mostra i tag in comune col progetto selezionato (locked). Nessun
+    // highlight se non c'è ancora un progetto selezionato, o se il nodo che
+    // stiamo visualizzando È quello selezionato.
+    const lockedNode = lockedProjectNode();
+    const lockedTags = lockedNode
+      ? new Set(
+          (lockedNode.tagsNorm || []).map((t) => String(t).trim().toLowerCase()).filter(Boolean),
+        )
+      : null;
     const highlightTags =
-      lockedTags && lockedPreviewId && nid !== lockedPreviewId ? lockedTags : null;
+      lockedTags && lockedTags.size && lockedPreviewId && nid !== lockedPreviewId
+        ? lockedTags
+        : null;
+    const sharedWithTitle = highlightTags ? lockedNode?.titolo || "" : "";
     // "Torna alla Project List" solo sull'anteprima (bloccata) del progetto da
     // cui si è arrivati tramite "Mostra collegamenti".
     const backToListHref =
       backToListNodeId && nid === backToListNodeId && lockedPreviewId === backToListNodeId
         ? `projects.html#proj-${encodeURIComponent(String(nid))}`
         : "";
-    previewInner.innerHTML = renderProjectPreviewHtml(node, { highlightTags, backToListHref });
+    previewInner.innerHTML = renderProjectPreviewHtml(node, {
+      highlightTags,
+      sharedWithTitle,
+      backToListHref,
+    });
     previewPane?.classList.add("top10-preview-pane--active");
   }
 

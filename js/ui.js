@@ -248,27 +248,31 @@ function nodeTagsPanelHtml(node, variant) {
   return `<div class="${block}"><p class="${label}">Top ${LEGEND_TAG_TOP_COUNT} tag</p><div class="${wrap}">${tagPillsHtml(tags, pill, LEGEND_TAG_TOP_COUNT)}</div></div>`;
 }
 
-/** Tutti i tag del progetto (sotto il titolo in anteprima). Se `highlightTags`
- *  è un Set di tag normalizzati, quei tag vengono mostrati in grassetto
- *  (usato per evidenziare i tag in comune col progetto selezionato). */
-function previewAllTagsHtml(node, highlightTags) {
-  const norms = (node.tagsNorm || []).map((t) => String(t).trim().toLowerCase());
+/** Tutti i tag del progetto (sotto il titolo in anteprima). */
+function previewAllTagsHtml(node) {
   const labels = (node.tagsDisplay?.length ? node.tagsDisplay : node.tagsNorm || [])
     .map((t) => String(t).trim())
     .filter(Boolean);
   if (!labels.length) {
     return '<p class="preview-panel__tagsEmpty mono"><span class="preview-panel__tagsInlineLabel">Tag:</span> Nessun tag</p>';
   }
-  const shared = highlightTags instanceof Set ? highlightTags : null;
-  const items = labels.map((label, i) => {
-    const norm = (norms[i] || label.toLowerCase()).trim();
-    const isShared = !!shared && shared.has(norm);
-    const safe = escapeHtml(label);
-    return isShared
-      ? `<strong class="preview-panel__tagShared">${safe}</strong>`
-      : safe;
-  });
-  return `<p class="preview-panel__tags"><span class="preview-panel__tagsInlineLabel">Tag:</span> ${items.join(", ")}</p>`;
+  return `<p class="preview-panel__tags"><span class="preview-panel__tagsInlineLabel">Tag:</span> ${labels.map((l) => escapeHtml(l)).join(", ")}</p>`;
+}
+
+/** Riquadro "Shares N tags with <progetto>: tag1, tag2" — solo se
+ *  `highlightTags` (Set di tag normalizzati) interseca i tag di questo nodo. */
+function previewSharedTagsHtml(node, highlightTags, sharedWithTitle) {
+  if (!(highlightTags instanceof Set) || !highlightTags.size) return "";
+  const norms = (node.tagsNorm || []).map((t) => String(t).trim().toLowerCase()).filter(Boolean);
+  const shared = [...new Set(norms.filter((t) => highlightTags.has(t)))];
+  if (!shared.length) return "";
+  const count = shared.length;
+  const tagList = shared.map((t) => escapeHtml(t)).join(", ");
+  const withName = escapeHtml(sharedWithTitle || "this project");
+  const label = count === 1 ? "tag" : "tags";
+  return `<div class="preview-panel__sharedTags">
+    <p class="preview-panel__sharedTagsLine"><span class="preview-panel__sharedTagsHead">Shares ${count} ${label} with ${withName}:</span> <span class="preview-panel__sharedTagsList">${tagList}</span></p>
+  </div>`;
 }
 
 /** Descrizione anteprima: oltre questa soglia, scroll minimale sul testo. */
@@ -284,13 +288,14 @@ function previewBodyHtml(text) {
 /**
  * HTML pannello anteprima (Top 10, colonna destra).
  * @param {object} node
- * @param {{ highlightTags?: Set<string> }} [opts] - se `highlightTags` è
- *   passato, i tag del nodo che appartengono al set vengono in grassetto
- *   (utile per mostrare i tag in comune col progetto selezionato).
+ * @param {{ highlightTags?: Set<string>, sharedWithTitle?: string }} [opts] -
+ *   se `highlightTags` è passato, mostra il riquadro "Shares N tags with
+ *   <sharedWithTitle>" con i tag in comune col progetto selezionato.
  */
 export function renderProjectPreviewHtml(node, opts = {}) {
   const heroSrc = node.previewPath ? getPreviewHref(node.previewPath) : "";
   const highlightTags = opts.highlightTags instanceof Set ? opts.highlightTags : null;
+  const sharedWithTitle = typeof opts.sharedWithTitle === "string" ? opts.sharedWithTitle : "";
   const backToListHref =
     typeof opts.backToListHref === "string" && opts.backToListHref ? opts.backToListHref : "";
 
@@ -306,12 +311,18 @@ export function renderProjectPreviewHtml(node, opts = {}) {
       <h2 class="preview-panel__title">${escapeHtml(node.titolo || "Senza titolo")}</h2>
       ${node.autore ? `<p class="preview-panel__author">di ${escapeHtml(node.autore)}</p>` : ""}
       <div class="preview-panel__lowerScroll" tabindex="0" aria-label="Dettagli progetto">
-        ${previewAllTagsHtml(node, highlightTags)}
+        ${previewSharedTagsHtml(node, highlightTags, sharedWithTitle)}
+        ${previewAllTagsHtml(node)}
         ${previewBodyHtml(node.descrizione)}
         <div class="preview-panel__actions">
           ${
             node.url
-              ? `<a class="preview-panel__cta preview-panel__cta--primary mono" href="${escapeAttr(node.url)}" target="_blank" rel="noopener noreferrer">Apri il progetto</a>`
+              ? `<a class="preview-panel__cta preview-panel__cta--primary mono" href="${escapeAttr(node.url)}" target="_blank" rel="noopener noreferrer">
+                  <span class="preview-panel__ctaLabel">Open Project</span>
+                  <span class="preview-panel__ctaArrow" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" focusable="false"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </span>
+                </a>`
               : ""
           }
           ${
