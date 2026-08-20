@@ -29,16 +29,21 @@ export function setupFilters(container, topTags, onSelect) {
   function renderPills(tags) {
     container.innerHTML = "";
 
+    const heading = document.createElement("p");
+    heading.className = "filters__heading mono";
+    heading.textContent = "Top 10 most used tag:";
+    container.appendChild(heading);
+
+    const tagCluster = document.createElement("div");
+    tagCluster.className = "filters__tags";
+    container.appendChild(tagCluster);
+
     const allBtn = document.createElement("button");
     allBtn.type = "button";
     allBtn.className = "filter-pill";
     allBtn.innerHTML = `<span class="filter-pill__label">ALL PROJECTS</span>`;
     allBtn.setAttribute("data-tag", "");
-    container.appendChild(allBtn);
-
-    const tagCluster = document.createElement("div");
-    tagCluster.className = "filters__tags";
-    container.appendChild(tagCluster);
+    tagCluster.appendChild(allBtn);
 
     for (const t of tags || []) {
       const tag = String(t.tag ?? "").trim();
@@ -327,7 +332,7 @@ export function renderProjectPreviewHtml(node, opts = {}) {
           }
           ${
             backToListHref
-              ? `<a class="preview-panel__cta preview-panel__cta--back mono" href="${escapeAttr(backToListHref)}">Torna alla Project List</a>`
+              ? `<a class="preview-panel__cta preview-panel__cta--back mono" href="${escapeAttr(backToListHref)}">Back to Project List</a>`
               : ""
           }
         </div>

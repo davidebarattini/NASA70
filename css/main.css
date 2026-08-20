@@ -13,15 +13,14 @@
   --nasa-red-hover: #ff5a40;
   --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --explore-inset: clamp(1rem, 2.8vw, 1.65rem);
+  --explore-inset: clamp(1.5rem, 3.5vw, 2.5rem);
   --brand-logo-width: 152px;
-  --header-pad-inline: 1.25rem;
+  /* Stesso valore di --explore-inset: header e contenuto restano sempre
+     allineati sullo stesso bordo sinistro/destro a ogni larghezza. */
+  --header-pad-inline: var(--explore-inset);
   --header-nav-gap: 1.35rem;
+  --nav-extra-offset: 2rem;
   --nav-link-pad-inline: 0.55rem;
-  --align-explore-inline: calc(
-    var(--header-pad-inline) + var(--brand-logo-width) + var(--header-nav-gap) +
-      var(--nav-link-pad-inline)
-  );
   --cluster-moon: #c4b5fd;
   --cluster-mars: #fca5a5;
   --cluster-earth: #6ee7b7;
@@ -52,9 +51,7 @@ body {
 }
 
 body {
-  background-image:
-    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(60, 80, 140, 0.18), transparent 55%),
-    radial-gradient(ellipse 80% 60% at 100% 100%, rgba(30, 40, 90, 0.12), transparent 50%);
+  background-image: radial-gradient(ellipse 80% 60% at 100% 100%, rgba(30, 40, 90, 0.12), transparent 50%);
 }
 
 .site-header {
@@ -88,6 +85,38 @@ body {
 
 .site-header > * {
   pointer-events: auto;
+}
+
+.header__helpButton {
+  position: fixed;
+  top: 5.5rem;
+  left: var(--explore-inset);
+  z-index: 25;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: rgba(232, 234, 239, 0.55);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 400;
+  line-height: 1;
+  text-align: center;
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+
+.header__helpButton:hover,
+.header__helpButton:focus-visible {
+  color: var(--text);
+  border-color: var(--accent);
+  background: rgba(126, 184, 255, 0.12);
 }
 
 .header__menuButton {
@@ -158,31 +187,6 @@ body {
   flex-shrink: 0;
 }
 
-/* Freccia "torna alla Home" nella scheda (al posto del logo). */
-.header__back {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  flex-shrink: 0;
-  color: rgba(232, 234, 239, 0.7);
-  text-decoration: none;
-  transition: color var(--transition), background var(--transition);
-}
-
-.header__back:hover {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.header__back svg {
-  display: block;
-  width: 20px;
-  height: 20px;
-}
-
 .site-header__start {
   display: flex;
   align-items: center;
@@ -194,6 +198,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.15rem;
+  margin-left: var(--nav-extra-offset);
 }
 
 .site-nav__link {
@@ -201,9 +206,9 @@ body {
   align-items: center;
   gap: 0.32rem;
   font-family: var(--font-mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
   text-decoration: none;
   color: rgba(232, 234, 239, 0.48);
   padding: 0.35rem var(--nav-link-pad-inline);
@@ -266,10 +271,30 @@ body {
 
 .site-nav__link--active {
   color: var(--text);
-  text-decoration: underline;
-  text-decoration-color: rgba(232, 234, 239, 0.72);
-  text-underline-offset: 0.32em;
-  text-decoration-thickness: 1px;
+}
+
+.site-nav__linkLabel {
+  position: relative;
+  display: inline-block;
+}
+
+.site-nav__linkLabel::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.25s ease;
+}
+
+.site-nav__link:hover .site-nav__linkLabel::after,
+.site-nav__link:focus-visible .site-nav__linkLabel::after,
+.site-nav__link--active .site-nav__linkLabel::after {
+  transform: scaleX(1);
 }
 
 .brand__logo {
@@ -668,6 +693,16 @@ body {
   pointer-events: auto;
 }
 
+.filters__heading {
+  flex: 1 1 100%;
+  margin: 0 0 0.1rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  color: rgba(232, 234, 239, 0.42);
+}
+
 .filter-pill {
   display: inline-flex;
   align-items: center;
@@ -727,6 +762,167 @@ body {
 
 .tooltip[hidden] {
   display: none;
+}
+
+/* Mini tutorial al primo arrivo su Connections: spegne tutti i progetti
+   tranne uno, evidenziato, con un fumetto + freccia che invita all'hover. */
+.graph-node--tutorial-dim {
+  opacity: 0.1 !important;
+  pointer-events: none !important;
+  transition: opacity 0.5s ease;
+}
+
+/* Il cerchio interattivo interno ha pointer-events="all" via attributo
+   SVG, che vince sull'ereditarietà del "none" impostato sopra: va spento
+   esplicitamente, altrimenti i progetti spenti restano hoverabili/
+   cliccabili durante il tutorial. */
+.graph-node--tutorial-dim .graph-node__hit {
+  pointer-events: none !important;
+}
+
+/* Come sopra ma senza attenuare l'opacità: usata per i progetti attivi
+   (passo 2/3) che devono restare visivamente "normali" ma non cliccabili,
+   perché durante il tutorial è interagibile solo il progetto in evidenza. */
+.graph-node--tutorial-lock {
+  pointer-events: none !important;
+}
+
+.graph-node--tutorial-lock .graph-node__hit {
+  pointer-events: none !important;
+}
+
+.graph-node--tutorial-spotlight .graph-node__halo {
+  stroke: var(--accent) !important;
+  stroke-opacity: 0.5 !important;
+  animation: tutorialSpotlightPulse 1.7s ease-in-out infinite;
+}
+
+.graph-node--tutorial-spotlight .graph-node__ring {
+  stroke: var(--accent) !important;
+  stroke-opacity: 1 !important;
+  stroke-width: 1.8px !important;
+}
+
+@keyframes tutorialSpotlightPulse {
+  0%,
+  100% {
+    stroke-opacity: 0.2;
+  }
+  50% {
+    stroke-opacity: 0.6;
+  }
+}
+
+/* Passo 3: cerchietto "bersaglio" in un punto vuoto del grafo, a indicare
+   dove cliccare per chiudere il pannello di anteprima. */
+.tutorial-target-circle {
+  position: fixed;
+  z-index: 24;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--accent);
+  box-shadow: 0 0 10px rgba(126, 184, 255, 0.5);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation: tutorialTargetPulse 1.7s ease-in-out infinite;
+}
+
+@keyframes tutorialTargetPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-target-circle {
+    animation: none;
+  }
+}
+
+.tutorial-callout {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  pointer-events: none;
+  /* Posizione (--tutorial-x/--tutorial-y, aggiornate via JS a ogni frame)
+     applicata solo tramite transform, mai left/top: transform è composto
+     dalla GPU senza toccare il layout, il che in Safari evita che il
+     fumetto resti "indietro" rispetto al nodo che insegue. */
+  animation: tutorialCalloutBob 2.2s ease-in-out infinite;
+}
+
+.tutorial-callout--left {
+  flex-direction: row;
+  align-items: center;
+  animation-name: tutorialCalloutBobSide;
+}
+
+.tutorial-callout__text {
+  margin: 0;
+  /* Larghezza fissa (non max-width): il fumetto non deve cambiare
+     dimensione quando il testo passa da una frase più lunga a una più
+     corta, altrimenti l'ancoraggio sembra "spostarsi". */
+  width: min(220px, calc(100vw - 3rem));
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--panel-border);
+  background: rgba(12, 14, 22, 0.82);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  text-align: center;
+  color: rgba(232, 234, 239, 0.95);
+}
+
+.tutorial-callout__arrow {
+  display: block;
+  color: var(--accent);
+  filter: drop-shadow(0 0 4px rgba(126, 184, 255, 0.6));
+}
+
+/* La freccia punta a destra di default: ruotata verso il basso quando il
+   fumetto sta sopra l'ancora (nodi del grafo / cerchietto bersaglio). */
+.tutorial-callout--down .tutorial-callout__arrow {
+  transform: rotate(90deg);
+}
+
+@keyframes tutorialCalloutBob {
+  0%,
+  100% {
+    transform: translate(var(--tutorial-x, 0px), var(--tutorial-y, 0px)) translate(-50%, -100%) translateY(0);
+  }
+  50% {
+    transform: translate(var(--tutorial-x, 0px), var(--tutorial-y, 0px)) translate(-50%, -100%) translateY(-6px);
+  }
+}
+
+@keyframes tutorialCalloutBobSide {
+  0%,
+  100% {
+    transform: translate(var(--tutorial-x, 0px), var(--tutorial-y, 0px)) translate(-100%, -50%) translateX(0);
+  }
+  50% {
+    transform: translate(var(--tutorial-x, 0px), var(--tutorial-y, 0px)) translate(-100%, -50%) translateX(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .graph-node--tutorial-spotlight .graph-node__halo,
+  .tutorial-callout {
+    animation: none;
+  }
 }
 
 .graph-cursor-cta {
@@ -1252,6 +1448,7 @@ body {
   :root {
     --brand-logo-width: 124px;
     --header-nav-gap: 0.65rem;
+    --nav-extra-offset: 0.5rem;
     --nav-link-pad-inline: 0.45rem;
   }
 
@@ -1260,7 +1457,7 @@ body {
   }
 
   .site-nav__link {
-    font-size: 0.56rem;
+    font-size: 0.78rem;
     padding: 0.3rem var(--nav-link-pad-inline);
   }
 
@@ -1275,7 +1472,7 @@ body {
 
   .legend {
     top: 4.2rem;
-    right: 0.75rem;
+    right: 1.5rem;
     left: auto;
     width: min(10.5rem, calc(100vw - 1.5rem));
     max-height: min(78vh, calc(100vh - 9.5rem));
@@ -1362,13 +1559,14 @@ body {
   bottom: 0;
   z-index: 15;
   display: grid;
-  grid-template-columns: calc(var(--align-explore-inline) - var(--explore-inset)) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: end;
-  column-gap: 0;
   row-gap: 0.45rem;
   max-width: 100%;
+  /* Allinea il blocco tag col bordo sinistro del logo nell'header. */
   padding: 0.65rem var(--explore-inset, clamp(1rem, 2.8vw, 1.65rem))
-    calc(var(--explore-inset, clamp(1rem, 2.8vw, 1.65rem)) + env(safe-area-inset-bottom));
+    calc(var(--explore-inset, clamp(1rem, 2.8vw, 1.65rem)) + env(safe-area-inset-bottom))
+    var(--header-pad-inline);
   pointer-events: none;
 }
 
@@ -1376,14 +1574,12 @@ body {
   pointer-events: auto;
 }
 
-.page-top10 .filters .filter-pill:first-child {
-  grid-column: 1;
+.page-top10 .filters__heading {
   justify-self: start;
-  align-self: end;
+  margin: 0;
 }
 
 .page-top10 .filters__tags {
-  grid-column: 2;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1576,10 +1772,9 @@ body {
   margin-top: 1.5rem;
   margin-bottom: 0.25rem;
   font-family: var(--font-sans);
-  font-size: 0.58rem;
+  font-size: 0.85rem;
   font-weight: 400;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   text-decoration: underline;
   text-decoration-color: rgba(232, 234, 239, 0.72);
   text-underline-offset: 0.32em;
@@ -1655,8 +1850,8 @@ body {
   align-items: flex-start;
 }
 
-/* Quando entrambi i link sono presenti, "Torna alla Project List" sta appena
-   sotto "Apri il progetto" con poco spazio. */
+/* Quando entrambi i link sono presenti, "Back to Project List" sta appena
+   sotto "Open Project" con poco spazio. */
 .preview-panel__cta--back {
   margin-top: 0.6rem;
   text-decoration-color: rgba(232, 234, 239, 0.45);
@@ -1793,7 +1988,7 @@ body {
   .page-top10 .legend {
     position: fixed;
     top: 4.75rem;
-    right: 0.75rem;
+    right: 1.5rem;
     left: auto;
     max-height: min(36vh, calc(100vh - 9.5rem));
     transform: translateY(-6px) translateX(110%);
@@ -1867,7 +2062,6 @@ body {
   width: 100%;
   max-width: none;
   margin: 0;
-  --explore-inset: clamp(1rem, 2.8vw, 1.65rem);
   padding-inline: var(--explore-inset);
 }
 
@@ -2487,8 +2681,8 @@ body {
   max-width: 220px;
   aspect-ratio: 220 / 150;
   margin: 0;
-  padding: 0;
-  border: 0;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   overflow: hidden;
   background: rgba(255, 255, 255, 0.04);
   cursor: pointer;
@@ -2500,10 +2694,6 @@ body {
 .explore-item__media:focus-visible {
   outline: 2px solid rgba(232, 234, 239, 0.55);
   outline-offset: 3px;
-}
-
-.explore-item__media--empty {
-  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .explore-item__img {
@@ -2754,8 +2944,8 @@ body {
   }
 
   .explore-main__inner {
-    --explore-inset: 1rem;
-    padding-inline: 1rem;
+    --explore-inset: 1.5rem;
+    padding-inline: 1.5rem;
   }
 
   .explore-toolbar__row {

@@ -536,7 +536,7 @@ export function createGraphController(options) {
       .data(nodes, (d) => d.id)
       .join(
         (enter) => {
-          const g = enter.append("g").attr("class", "graph-node");
+          const g = enter.append("g").attr("class", "graph-node").attr("data-node-id", (d) => d.id);
           g.append("circle")
             .attr("class", "graph-node__halo")
             .attr("r", (d) => nodeDims(d).ringR * 1.5)
