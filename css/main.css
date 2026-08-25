@@ -31,12 +31,45 @@
   --cluster-media: #a5b4fc;
   --radius: 10px;
   --transition: 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  /* Morph Home ⇄ Connections (vedi .home-hero / .top10-shell): più lento
+     di --transition, così il grafo ha il tempo di "aprirsi" con calma
+     invece di scattare. La sequenza è coreografata in main.js
+     (activateConnections): prima si accendono i collegamenti (a riquadro
+     ancora fermo), POI parte questo movimento/ridimensionamento. */
+  --morph-transition: 1.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --morph-transition: 0.01ms;
+  }
+}
+
+/* Registrata come <length> così può transire in modo fluido (vedi
+   .top10-shell): un custom property "plain" cambierebbe di colpo anche se
+   elencato in una transition. */
+@property --preview-reserve {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
 }
 
 *,
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/* Cross-document View Transition per le navigazioni reali rimaste tra
+   pagine diverse (es. Project List → Connections): Home ⇄ Connections non
+   naviga più, vedi .home-hero / .top10-shell e l'orchestrazione in main.js.
+   Nei browser che non la supportano questa regola viene semplicemente
+   ignorata: la navigazione resta quella normale, nessun fallback JS
+   necessario. */
+@media not (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: auto;
+  }
 }
 
 html,
@@ -85,38 +118,6 @@ body {
 
 .site-header > * {
   pointer-events: auto;
-}
-
-.header__helpButton {
-  position: fixed;
-  top: 5.5rem;
-  left: var(--explore-inset);
-  z-index: 25;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 1.9rem;
-  height: 1.9rem;
-  padding: 0;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: transparent;
-  color: rgba(232, 234, 239, 0.55);
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  font-weight: 400;
-  line-height: 1;
-  text-align: center;
-  cursor: pointer;
-  transition: color var(--transition), border-color var(--transition), background var(--transition);
-}
-
-.header__helpButton:hover,
-.header__helpButton:focus-visible {
-  color: var(--text);
-  border-color: var(--accent);
-  background: rgba(126, 184, 255, 0.12);
 }
 
 .header__menuButton {
@@ -422,6 +423,16 @@ body {
   filter: drop-shadow(0 0 3px rgba(126, 184, 255, 0.95));
 }
 
+/* Coppie che coinvolgono un progetto "spento" dal filtro tag: stessa
+   attenuazione visiva dei nodi .graph-node--inactive (non spariscono, solo
+   una linea piatta senza glow né pallini animati — quelli restano solo per
+   le coppie attive). */
+.graph-svg .focus-link--dim {
+  stroke-width: 0.7;
+  stroke-opacity: 0.05;
+  filter: none;
+}
+
 .graph-node {
   cursor: grab;
   opacity: 1;
@@ -441,6 +452,16 @@ body {
 
 .graph-node--off .graph-node__hit {
   pointer-events: none !important;
+}
+
+/* Con una selezione attiva, hover su UN altro progetto ancora attivo: gli
+   altri progetti attivi (non selezionati, non sotto hover) si attenuano
+   invece di sparire, restando comunque hoverabili — stessa opacità di
+   .graph-node--inactive per coerenza visiva, ma senza spegnere i pointer-
+   events (permette di spostarsi da un progetto attivo all'altro). */
+.graph-node--selection-dim {
+  opacity: 0.32;
+  transition: opacity 0.25s ease;
 }
 
 /* Progetto selezionato (clic): anello esterno bianco ben visibile.
@@ -704,6 +725,7 @@ body {
 }
 
 .filter-pill {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -721,16 +743,35 @@ body {
   transition: color var(--transition);
 }
 
-.filter-pill__label {
-  text-underline-offset: 0.28em;
-  text-decoration-thickness: 1px;
-}
-
 .filter-pill--tag .filter-pill__label {
   max-width: 7.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Stessa sottolineatura animata (scaleX) usata per gli altri link del
+   sito: appare in hover/focus e resta "accesa" sul tag attualmente
+   selezionato, invece del text-decoration statico. Sul bottone (non sulla
+   label) perché quella dei singoli tag ha overflow:hidden per l'ellissi,
+   che taglierebbe via una pseudo-classe posizionata al suo interno. */
+.filter-pill::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.25s ease;
+}
+
+.filter-pill:hover::after,
+.filter-pill:focus-visible::after,
+.filter-pill[aria-pressed="true"]::after {
+  transform: scaleX(1);
 }
 
 .filter-pill:hover {
@@ -739,11 +780,6 @@ body {
 
 .filter-pill[aria-pressed="true"] {
   color: rgba(232, 234, 239, 0.92);
-}
-
-.filter-pill[aria-pressed="true"] .filter-pill__label {
-  text-decoration: underline;
-  text-decoration-color: rgba(232, 234, 239, 0.72);
 }
 
 .tooltip {
@@ -762,167 +798,6 @@ body {
 
 .tooltip[hidden] {
   display: none;
-}
-
-/* Mini tutorial al primo arrivo su Connections: spegne tutti i progetti
-   tranne uno, evidenziato, con un fumetto + freccia che invita all'hover. */
-.graph-node--tutorial-dim {
-  opacity: 0.1 !important;
-  pointer-events: none !important;
-  transition: opacity 0.5s ease;
-}
-
-/* Il cerchio interattivo interno ha pointer-events="all" via attributo
-   SVG, che vince sull'ereditarietà del "none" impostato sopra: va spento
-   esplicitamente, altrimenti i progetti spenti restano hoverabili/
-   cliccabili durante il tutorial. */
-.graph-node--tutorial-dim .graph-node__hit {
-  pointer-events: none !important;
-}
-
-/* Come sopra ma senza attenuare l'opacità: usata per i progetti attivi
-   (passo 2/3) che devono restare visivamente "normali" ma non cliccabili,
-   perché durante il tutorial è interagibile solo il progetto in evidenza. */
-.graph-node--tutorial-lock {
-  pointer-events: none !important;
-}
-
-.graph-node--tutorial-lock .graph-node__hit {
-  pointer-events: none !important;
-}
-
-.graph-node--tutorial-spotlight .graph-node__halo {
-  stroke: var(--accent) !important;
-  stroke-opacity: 0.5 !important;
-  animation: tutorialSpotlightPulse 1.7s ease-in-out infinite;
-}
-
-.graph-node--tutorial-spotlight .graph-node__ring {
-  stroke: var(--accent) !important;
-  stroke-opacity: 1 !important;
-  stroke-width: 1.8px !important;
-}
-
-@keyframes tutorialSpotlightPulse {
-  0%,
-  100% {
-    stroke-opacity: 0.2;
-  }
-  50% {
-    stroke-opacity: 0.6;
-  }
-}
-
-/* Passo 3: cerchietto "bersaglio" in un punto vuoto del grafo, a indicare
-   dove cliccare per chiudere il pannello di anteprima. */
-.tutorial-target-circle {
-  position: fixed;
-  z-index: 24;
-  width: 2.2rem;
-  height: 2.2rem;
-  border-radius: 999px;
-  border: 1.5px solid var(--accent);
-  box-shadow: 0 0 10px rgba(126, 184, 255, 0.5);
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  animation: tutorialTargetPulse 1.7s ease-in-out infinite;
-}
-
-@keyframes tutorialTargetPulse {
-  0%,
-  100% {
-    opacity: 0.35;
-  }
-  50% {
-    opacity: 0.9;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tutorial-target-circle {
-    animation: none;
-  }
-}
-
-.tutorial-callout {
-  position: fixed;
-  left: 0;
-  top: 0;
-  z-index: 30;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.2rem;
-  pointer-events: none;
-  /* Posizione (--tutorial-x/--tutorial-y, aggiornate via JS a ogni frame)
-     applicata solo tramite transform, mai left/top: transform è composto
-     dalla GPU senza toccare il layout, il che in Safari evita che il
-     fumetto resti "indietro" rispetto al nodo che insegue. */
-  animation: tutorialCalloutBob 2.2s ease-in-out infinite;
-}
-
-.tutorial-callout--left {
-  flex-direction: row;
-  align-items: center;
-  animation-name: tutorialCalloutBobSide;
-}
-
-.tutorial-callout__text {
-  margin: 0;
-  /* Larghezza fissa (non max-width): il fumetto non deve cambiare
-     dimensione quando il testo passa da una frase più lunga a una più
-     corta, altrimenti l'ancoraggio sembra "spostarsi". */
-  width: min(220px, calc(100vw - 3rem));
-  padding: 0.6rem 0.85rem;
-  border-radius: var(--radius);
-  border: 1px solid var(--panel-border);
-  background: rgba(12, 14, 22, 0.82);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
-  font-family: var(--font-sans);
-  font-size: 0.78rem;
-  line-height: 1.4;
-  text-align: center;
-  color: rgba(232, 234, 239, 0.95);
-}
-
-.tutorial-callout__arrow {
-  display: block;
-  color: var(--accent);
-  filter: drop-shadow(0 0 4px rgba(126, 184, 255, 0.6));
-}
-
-/* La freccia punta a destra di default: ruotata verso il basso quando il
-   fumetto sta sopra l'ancora (nodi del grafo / cerchietto bersaglio). */
-.tutorial-callout--down .tutorial-callout__arrow {
-  transform: rotate(90deg);
-}
-
-@keyframes tutorialCalloutBob {
-  0%,
-  100% {
-    transform: translate(var(--tutorial-x, 0px), var(--tutorial-y, 0px)) translate(-50%, -100%) translateY(0);
-  }
-  50% {
-    transform: translate(var(--tutorial-x, 0px), var(--tutorial-y, 0px)) translate(-50%, -100%) translateY(-6px);
-  }
-}
-
-@keyframes tutorialCalloutBobSide {
-  0%,
-  100% {
-    transform: translate(var(--tutorial-x, 0px), var(--tutorial-y, 0px)) translate(-100%, -50%) translateX(0);
-  }
-  50% {
-    transform: translate(var(--tutorial-x, 0px), var(--tutorial-y, 0px)) translate(-100%, -50%) translateX(-6px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .graph-node--tutorial-spotlight .graph-node__halo,
-  .tutorial-callout {
-    animation: none;
-  }
 }
 
 .graph-cursor-cta {
@@ -1501,8 +1376,6 @@ body {
 .page-top10 {
   overflow: hidden;
   --explore-legend-offset: 3.45rem;
-  /* Larghezza riservata sulla destra per il pannello anteprima. */
-  --preview-reserve: clamp(19rem, 31vw, 27rem);
 }
 
 .page-top10 .top10-shell {
@@ -1515,6 +1388,29 @@ body {
   grid-template-columns: minmax(0, 1fr);
   overflow: hidden;
   z-index: 0;
+  /* Larghezza riservata sulla destra per il pannello anteprima: dichiarata
+     qui (non su .page-top10) e registrata via @property (vedi :root) così
+     transita in modo fluido insieme a left/right/top/bottom invece di
+     scattare di colpo — altrimenti, durante il morph, il grafo/i filtri
+     "perderebbero" di colpo questi px proprio mentre il riquadro sta
+     ancora crescendo, restringendosi per un attimo in modo innaturale. */
+  --preview-reserve: clamp(19rem, 31vw, 27rem);
+  transition: left var(--morph-transition), right var(--morph-transition),
+    top var(--morph-transition), bottom var(--morph-transition),
+    --preview-reserve var(--morph-transition);
+}
+
+/* Modalità "home": lo stage grafo/filtri/anteprima si rimpicciolisce a
+   riquadro decorativo accanto al testo hero (vedi .home-hero), invece di
+   occupare tutto lo schermo. Stesso DOM, stessa simulazione: solo la sua
+   "cornice" cambia, animata dal transition qui sopra. */
+body.page-top10.mode-home .top10-shell {
+  left: 54%;
+  right: var(--explore-inset, clamp(1rem, 2.8vw, 1.65rem));
+  top: 16%;
+  bottom: 20%;
+  /* Nessun pannello anteprima riservato mentre è un riquadro decorativo. */
+  --preview-reserve: 0px;
 }
 
 .page-top10 .top10-graph-pane {
@@ -1623,6 +1519,30 @@ body {
   transition-delay: 0.16s;
 }
 
+/* Modalità "home": filtri, legenda e i controlli header specifici di
+   Connections restano montati (stessa istanza, nessun rebuild) ma non
+   ancora rilevanti finché non si "attiva" la vista interattiva. Compaiono
+   già fermi nella loro posizione finale (nessuno spostamento, solo un
+   fade), con un piccolo ritardo così arrivano un attimo dopo che il
+   riquadro ha già iniziato ad aprirsi — vedi la regola "mode-connections"
+   sotto per il fade in entrata; qui (nascondersi) resta rapido e senza
+   ritardo, per un rientro pronto quando si torna in home. */
+body.mode-home .filters,
+body.mode-home .legend,
+body.mode-home .header__menuButton,
+body.mode-home .header-meta {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+body.mode-connections .filters,
+body.mode-connections .legend,
+body.mode-connections .header__menuButton,
+body.mode-connections .header-meta {
+  transition: opacity 0.6s ease 0.85s;
+}
+
 .page-top10 .top10-preview-pane__inner {
   flex: 1;
   min-height: 0;
@@ -1664,6 +1584,7 @@ body {
   display: block;
 }
 
+/* Appena sotto il titolo: "Autore · Data" su un'unica riga. */
 .preview-panel__author {
   margin: -0.4rem 0 0;
   font-family: var(--font-sans);
@@ -1871,7 +1792,11 @@ body {
 }
 
 .preview-panel__tags {
-  margin: 0.7rem 0 0.4rem;
+  /* Vicino alla data sopra: margine superiore negativo per compensare il
+     gap di base di .preview-panel__lowerScroll. Dimensione piccola (i
+     valori dei tag, in maiuscolo): l'etichetta "Tags" è ingrandita a
+     parte sotto. */
+  margin: -0.15rem 0 0.4rem;
   font-size: 0.58rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1879,11 +1804,13 @@ body {
   color: rgba(232, 234, 239, 0.65);
 }
 
+/* Stesso font/dimensione di "Publication Date" (.preview-panel__date), non
+   in maiuscolo: solo i valori dei tag restano piccoli e maiuscoli. */
 .preview-panel__tagsInlineLabel {
-  font-size: 0.58rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(232, 234, 239, 0.55);
+  font-size: clamp(0.7rem, 0.95vw, 0.82rem);
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: rgba(232, 234, 239, 0.65);
   margin-right: 0.15rem;
 }
 
@@ -1939,14 +1866,48 @@ body {
     display: none !important;
   }
 
-  .page-top10 .tooltip {
-    display: none !important;
-  }
-
   .page-top10 .legend {
     opacity: 1;
     pointer-events: auto;
     transform: none;
+  }
+
+  /* Elenco tag spostato in alto a sinistra, impilato verticalmente invece
+     che in una fascia in basso. Solo desktop: su mobile resta la fascia
+     inferiore a piena larghezza definita sopra. */
+  .page-top10 .filters {
+    position: absolute;
+    top: var(--explore-legend-offset);
+    left: var(--header-pad-inline);
+    right: auto;
+    bottom: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    row-gap: 0.65rem;
+    width: min(16rem, calc(100% - 2rem));
+    max-height: min(65vh, calc(100% - 12rem));
+    max-width: none;
+    padding: 0;
+  }
+
+  .page-top10 .filters__heading {
+    justify-self: auto;
+    /* Testo naturale (non tutto maiuscolo) e dimensione allineata al resto
+       dei testi del sito, non più minuscola come un'etichetta tecnica. */
+    text-transform: none;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    letter-spacing: 0.01em;
+    color: rgba(232, 234, 239, 0.68);
+  }
+
+  /* Elenco tag in singola colonna (uno per riga), non più a capo su più
+     colonne: "All Tags" e ogni tag della lista occupano ciascuno una riga. */
+  .page-top10 .filters__tags {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.45rem;
   }
 }
 
@@ -2118,46 +2079,30 @@ body {
   color: rgba(232, 234, 239, 0.62);
 }
 
-/* ---------- Hero NASA-style (PROJECTS) ---------- */
-.hero-nasa {
-  /* Occupa l'intera viewport visibile (sotto l'header fisso) così
-     entrando si vede SOLO la hero, e la lista è "below the fold". */
-  min-height: calc(100vh - 5.5rem);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: center;
-  gap: clamp(1.5rem, 4vw, 4rem);
-  padding: 1rem 0 2rem;
-  max-width: none;
+/* ---------- Home ⇄ Connections: pagina unica ----------
+   Home e Connections sono la STESSA pagina/DOM: niente più navigazione tra
+   due HTML separati. `.top10-shell` (grafo + filtri + pannello anteprima)
+   resta sempre montato — in modalità "home" un CSS transform/inset lo
+   rimpicciolisce a riquadro decorativo accanto al testo hero, in modalità
+   "connections" torna a occupare tutto lo stage. Così lo stesso
+   controller/simulazione (graph.js, mai ricreato) si anima in modo
+   continuo da un aspetto all'altro invece di ricaricare una pagina nuova
+   con un layout riseminato da zero (vedi `setInteractive`/`resize` in
+   graph.js e l'orchestrazione in main.js). */
+.home-hero {
+  position: fixed;
+  z-index: 16;
+  left: var(--explore-inset, clamp(1rem, 2.8vw, 1.65rem));
+  top: 50%;
+  width: min(44%, 34rem);
+  transform: translateY(-50%);
+  transition: opacity var(--morph-transition), transform var(--morph-transition);
 }
 
-.hero-nasa__text {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-width: 0;
-}
-
-.hero-nasa__visual {
-  position: relative;
-  min-width: 0;
-  align-self: center;
-  justify-self: start;
-  width: 100%;
-  height: min(70vh, 36rem);
-  /* Sposta leggermente i nodi verso sinistra dentro la colonna destra. */
-  transform: translateX(-3rem);
-  border-radius: 1rem;
-  overflow: visible;
-  user-select: none;
-}
-
-.hero-graph-svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
+body.mode-connections .home-hero {
+  opacity: 0;
+  transform: translateY(-50%) translateX(-1.25rem);
+  pointer-events: none;
 }
 
 /* Modalità decorativa del grafo (hero PROJECTS): disabilitiamo ogni
@@ -2441,20 +2386,33 @@ body {
 }
 
 @media (max-width: 980px) {
-  .hero-nasa {
-    grid-template-columns: 1fr;
+  .home-hero {
+    position: static;
+    width: auto;
+    max-width: 34rem;
+    margin: 4.5rem auto 0;
+    padding: 0 var(--explore-inset, clamp(1rem, 2.8vw, 1.65rem));
+    transform: none;
   }
-  .hero-nasa__visual {
-    /* Sotto i 980px nascondiamo il grafo decorativo per dare spazio
-       al testo (occupa schermo intero). */
+  body.mode-connections .home-hero {
+    transform: none;
+  }
+  /* Sotto i 980px nascondiamo il grafo decorativo per dare spazio al testo
+     (occupa schermo intero): niente riquadro da "aprire", il passaggio a
+     Connections è un semplice cross-fade invece di un morph geometrico. */
+  body.mode-home .top10-shell {
     display: none;
+  }
+  /* .home-hero è in flusso normale qui sotto: permetti lo scroll invece
+     dell'overflow:hidden fisso pensato per lo stage a tutta pagina. */
+  body.page-top10.mode-home {
+    overflow-y: auto;
   }
 }
 
 @media (max-width: 820px) {
-  .hero-nasa {
-    min-height: calc(100dvh - 4.85rem);
-    padding: 1rem 0 1.5rem;
+  .home-hero {
+    margin-top: 3.6rem;
   }
   .hero-nasa__title {
     font-size: clamp(2rem, 8.5vw, 2.6rem);
@@ -2602,30 +2560,49 @@ body {
   list-style: none;
   margin: 0;
   padding: 0;
-}
-
-.explore-item {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  align-items: start;
-  gap: clamp(0.75rem, 2vw, 1.5rem);
-  padding: var(--explore-inset, 1rem) 0 clamp(1.1rem, 2.5vw, 1.85rem);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  cursor: default;
-  transition: border-color var(--transition);
+  gap: 2.5rem 1.5rem;
 }
 
-.explore-item:first-child {
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+.explore-card {
+  display: flex;
+  flex-direction: column;
+  /* Stesso ritmo verticale del pannello anteprima (Connections, colonna
+     destra): stesso gap di base, con gli stessi scostamenti puntuali sotto
+     per titolo/autore/tag/azioni. */
+  gap: 0.65rem;
+  min-width: 0;
+  padding-bottom: 1.35rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  transition: border-color var(--transition), background var(--transition);
+}
+
+@media (hover: hover) {
+  .explore-card:hover {
+    border-bottom-color: rgba(255, 255, 255, 0.24);
+  }
+
+  .explore-card:hover .explore-card__title {
+    color: #fff;
+  }
+
+  .explore-card:hover .explore-card__heroWrap {
+    border-color: rgba(255, 255, 255, 0.32);
+  }
+
+  .explore-card:hover .explore-card__hero {
+    transform: scale(1.035);
+  }
 }
 
 /* Evidenziazione temporanea quando si torna alla lista da "Torna alla
    Project List". */
-.explore-item--focused {
-  animation: exploreItemFocusFlash 1.6s ease;
+.explore-card--focused {
+  animation: exploreCardFocusFlash 1.6s ease;
 }
 
-@keyframes exploreItemFocusFlash {
+@keyframes exploreCardFocusFlash {
   0% {
     background: rgba(255, 255, 255, 0.12);
   }
@@ -2634,151 +2611,185 @@ body {
   }
 }
 
-.explore-item__row {
-  display: contents;
+.explore-card__heroWrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 220 / 150;
+  margin: 0 0 0.35rem;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  transition: border-color var(--transition);
 }
 
-.explore-item__title {
-  grid-column: 1;
+.explore-card__heroWrap--empty {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.explore-card__hero {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.35s ease;
+}
+
+.explore-card__title {
   min-width: 0;
+  transition: color var(--transition);
   margin: 0;
-  padding: 0 1rem 0 0;
   font-family: var(--font-sans);
   font-size: clamp(0.82rem, 1.15vw, 0.98rem);
   font-weight: 400;
   line-height: 1.3;
   letter-spacing: -0.01em;
   color: rgba(232, 234, 239, 0.92);
-  text-align: left;
-  transition: color var(--transition);
 }
 
-.explore-item__author {
-  grid-column: 2;
-  margin: 0;
+/* Appena sotto il titolo: "Autore · Data" su un'unica riga. */
+.explore-card__author {
+  margin: -0.4rem 0 0;
   min-width: 0;
   font-family: var(--font-sans);
-  font-size: clamp(0.82rem, 1.15vw, 0.98rem);
+  font-size: clamp(0.7rem, 0.95vw, 0.82rem);
   font-weight: 400;
-  line-height: 1.3;
+  line-height: 1.2;
   letter-spacing: -0.01em;
   color: rgba(232, 234, 239, 0.48);
-  text-align: left;
-  transition: color var(--transition);
 }
 
-.explore-item__author--empty {
-  visibility: hidden;
+.explore-card__tags {
+  /* Margine superiore negativo per compensare il gap di base (0.65rem)
+     della card. Dimensione piccola (i valori dei tag, in maiuscolo):
+     l'etichetta "Tags" è ingrandita a parte sotto. Altezza minima fissa
+     a 2 righe: così tutte le card della griglia restano allineate anche
+     quando i tag di una card occupano solo 1 riga e quelli di un'altra
+     ne occupano 2. */
+  margin: -0.1rem 0 0.4rem;
+  min-height: calc(2 * 1.5 * 0.7rem);
+  font-family: var(--font-sans);
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  color: rgba(232, 234, 239, 0.65);
 }
 
-.explore-item__media {
-  grid-column: 3;
-  align-self: start;
-  justify-self: center;
+/* Stesso font/dimensione di "Publication Date" (.explore-card__date), non
+   in maiuscolo: solo i valori dei tag restano piccoli e maiuscoli. */
+.explore-card__tagsLabel {
+  font-size: clamp(0.7rem, 0.95vw, 0.82rem);
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: rgba(232, 234, 239, 0.65);
+  margin-right: 0.15rem;
+}
+
+/* Testi lunghi non vengono più troncati con "...": restano scrollabili
+   dentro un'altezza fissa (~4 righe), come la descrizione nel pannello
+   anteprima di Connections (.preview-panel__bodyScroll). Sui testi che
+   entrano in 4 righe non cambia nulla (nessuna scrollbar, nessuna "…"). */
+.explore-card__descWrap {
   position: relative;
-  display: block;
-  width: 100%;
-  max-width: 220px;
-  aspect-ratio: 220 / 150;
+}
+
+.explore-card__desc {
   margin: 0;
-  padding: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.04);
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-  text-align: inherit;
-}
-
-.explore-item__media:focus-visible {
-  outline: 2px solid rgba(232, 234, 239, 0.55);
-  outline-offset: 3px;
-}
-
-.explore-item__img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.explore-item__date {
-  grid-column: 4;
-  align-self: start;
-  justify-self: end;
-  margin: 0;
-  padding: 0 0 0 1rem;
-  font-family: var(--font-mono);
-  font-size: clamp(0.82rem, 1.15vw, 0.98rem);
+  max-height: calc(4 * 1.65 * 0.84rem);
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
   font-weight: 400;
-  line-height: 1.3;
-  letter-spacing: 0.02em;
-  color: rgba(232, 234, 239, 0.45);
-  text-align: right;
-  white-space: nowrap;
+  line-height: 1.65;
+  color: rgba(232, 234, 239, 0.62);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-wrap: break-word;
+  -webkit-overflow-scrolling: touch;
+  /* Scrollbar nascosta di default, sottile "linietta" mostrata solo in
+     hover (vedi sotto), non un ingombro fisso sempre visibile. */
+  scrollbar-width: none;
+  scrollbar-color: rgba(232, 234, 239, 0.28) transparent;
 }
 
-.explore-item__expand {
-  --expand-full: 30rem;
-  grid-column: 1;
-  grid-row: 2;
-  min-width: 0;
-  overflow: hidden;
-  max-height: 3.35rem;
-  transition: max-height 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0s;
+.explore-card__desc:hover {
+  scrollbar-width: thin;
 }
 
-.explore-item__expandInner {
-  min-width: 0;
-  min-height: 0;
-  padding: 0.5rem 1rem 0.3rem 0;
+.explore-card__desc::-webkit-scrollbar {
+  width: 2px;
 }
 
-.explore-item__desc {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  margin: 0 0 1.4rem;
+.explore-card__desc::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 99px;
+}
+
+.explore-card__desc:hover::-webkit-scrollbar-thumb {
+  background: rgba(232, 234, 239, 0.28);
+}
+
+.explore-card__desc::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* "…" di fondo: indica che c'è altro testo sotto, sparisce appena si
+   inizia a scrollare (o se il testo entra già tutto in 4 righe). */
+.explore-card__descFade {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  padding-left: 1.6rem;
+  background: linear-gradient(to right, transparent, var(--void) 60%);
+  font-family: var(--font-sans);
   font-size: 0.84rem;
   line-height: 1.65;
   color: rgba(232, 234, 239, 0.62);
-  overflow: hidden;
-  overflow-wrap: break-word;
-  text-overflow: ellipsis;
-  transition: color var(--transition);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.2s ease;
 }
 
-.explore-item__actions {
+.explore-card__descWrap--noOverflow .explore-card__descFade,
+.explore-card__descWrap--scrolled .explore-card__descFade {
+  opacity: 0;
+}
+
+.explore-card__actions {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.85rem 1.1rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.55rem;
+  /* Stesso distacco dal testo sopra usato dal CTA nel pannello anteprima
+     (.preview-panel__cta { margin-top: 1.5rem }). */
+  margin-top: 1.5rem;
 }
 
-.explore-item__link {
+.explore-card__cta {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
-  font-size: 0.9rem;
-  text-transform: none;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
   text-decoration: none;
-  color: rgba(232, 234, 239, 0.48);
-  border-bottom: none;
+  /* Leggermente più chiaro del testo della descrizione (0.62). */
+  color: rgba(232, 234, 239, 0.7);
 }
 
-.explore-item__link:hover {
+.explore-card__cta:hover {
   color: rgba(232, 234, 239, 0.9);
 }
 
-.explore-item__linkLabel {
+.explore-card__ctaLabel {
   position: relative;
   display: inline-block;
 }
 
-.explore-item__linkLabel::after {
+.explore-card__ctaLabel::after {
   content: "";
   position: absolute;
   left: 0;
@@ -2791,20 +2802,12 @@ body {
   transition: transform 0.25s ease;
 }
 
-.explore-item__link:hover .explore-item__linkLabel::after,
-.explore-item__link:focus-visible .explore-item__linkLabel::after {
+.explore-card__cta:hover .explore-card__ctaLabel::after,
+.explore-card__cta:focus-visible .explore-card__ctaLabel::after {
   transform: scaleX(1);
 }
 
-.explore-item__link--primary {
-  color: rgba(255, 255, 255, 0.98);
-}
-
-.explore-item__link--primary:hover {
-  color: #fff;
-}
-
-.explore-item__linkArrow {
+.explore-card__ctaArrow {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2817,17 +2820,17 @@ body {
   transition: background 0.18s ease, transform 0.18s ease;
 }
 
-.explore-item__linkArrow svg {
+.explore-card__ctaArrow svg {
   width: 0.62rem;
   height: 0.62rem;
 }
 
-.explore-item__link--primary:hover .explore-item__linkArrow {
+.explore-card__cta--primary:hover .explore-card__ctaArrow {
   background: var(--nasa-red-hover);
   transform: translateX(2px);
 }
 
-.explore-item__linkParticles {
+.explore-card__ctaParticles {
   position: relative;
   display: inline-block;
   flex: none;
@@ -2835,7 +2838,7 @@ body {
   height: 1.3rem;
 }
 
-.explore-item__linkParticles span {
+.explore-card__ctaParticles span {
   position: absolute;
   width: 0.18rem;
   height: 0.18rem;
@@ -2845,25 +2848,25 @@ body {
   animation: exploreParticleDrift 2.8s ease-in-out infinite;
 }
 
-.explore-item__linkParticles span:nth-child(1) {
+.explore-card__ctaParticles span:nth-child(1) {
   top: 8%;
   left: 12%;
   animation-delay: 0s;
 }
 
-.explore-item__linkParticles span:nth-child(2) {
+.explore-card__ctaParticles span:nth-child(2) {
   top: 55%;
   left: 62%;
   animation-delay: 0.7s;
 }
 
-.explore-item__linkParticles span:nth-child(3) {
+.explore-card__ctaParticles span:nth-child(3) {
   top: 68%;
   left: 15%;
   animation-delay: 1.4s;
 }
 
-.explore-item__linkParticles span:nth-child(4) {
+.explore-card__ctaParticles span:nth-child(4) {
   top: 15%;
   left: 68%;
   animation-delay: 2.1s;
@@ -2882,137 +2885,26 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .explore-item__linkParticles span {
+  .explore-card__ctaParticles span {
     animation: none;
   }
 }
 
-@media (hover: hover) {
-  .explore-item--open,
-  .explore-item:hover {
-    border-bottom-color: rgba(255, 255, 255, 0.22);
-  }
-
-  .explore-item--open .explore-item__title,
-  .explore-item--open .explore-item__author,
-  .explore-item:hover .explore-item__title,
-  .explore-item:hover .explore-item__author {
-    color: #fff;
-  }
-
-  .explore-item--open .explore-item__expand,
-  .explore-item:hover .explore-item__expand {
-    max-height: var(--expand-full);
-    transition-delay: 0.5s;
-  }
-
-  .explore-item--open .explore-item__desc,
-  .explore-item:hover .explore-item__desc {
-    display: block;
-  }
-
-  /* Click sull'immagine: apertura immediata, senza delay dell'hover. */
-  .explore-item--open .explore-item__expand {
-    transition-delay: 0s;
+@media (max-width: 1200px) {
+  .explore-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-@media (hover: none) {
-  .explore-item__expand {
-    max-height: none;
-    transition: none;
-  }
-
-  .explore-item__desc {
-    display: block;
+@media (max-width: 900px) {
+  .explore-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .explore-item__expand {
-    transition: none;
-  }
-
-  .explore-item__img {
-    transition: none;
-  }
-}
-
-@media (max-width: 820px) {
-  .explore-main {
-    padding-top: 4.85rem;
-  }
-
-  .explore-main__inner {
-    --explore-inset: 1.5rem;
-    padding-inline: 1.5rem;
-  }
-
-  .explore-toolbar__row {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .explore-page-title {
-    padding-right: 0.5rem;
-  }
-
-  .explore-toolbar__sortRow {
-    grid-template-columns: minmax(0, 1fr) auto;
-    margin-bottom: 0.4rem;
-  }
-
-  .explore-toolbar__sortRow .explore-sortFilter {
-    grid-column: 2;
-  }
-
-  .explore-page-title {
-    font-size: clamp(1.15rem, 5.5vw, 1.5rem);
-  }
-
-  .explore-item {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "title date"
-      "author media"
-      "expand expand";
-    gap: 0.65rem;
-    padding: var(--explore-inset, 1rem) 0 1rem;
-  }
-
-  .explore-item__title {
-    grid-area: title;
-    padding: 0 0.5rem 0 0;
-    font-size: clamp(0.78rem, 3.4vw, 0.9rem);
-  }
-
-  .explore-item__author {
-    grid-area: author;
-    max-width: 9rem;
-    align-self: start;
-    font-size: clamp(0.78rem, 3.4vw, 0.9rem);
-    text-align: left;
-  }
-
-  .explore-item__media {
-    grid-area: media;
-    width: 120px;
-    height: 82px;
-  }
-
-  .explore-item__date {
-    grid-area: date;
-    padding: 0;
-    font-size: clamp(0.72rem, 3vw, 0.82rem);
-    text-align: right;
-  }
-
-  .explore-item__expand {
-    grid-area: expand;
-    grid-column: auto;
-    grid-row: auto;
-  }
-
-  .explore-item__expandInner {
-    padding: 0;
+@media (max-width: 560px) {
+  .explore-list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2rem;
   }
 }

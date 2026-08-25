@@ -18,6 +18,20 @@ export function formatDate(data) {
   return `${anno}-${mm}-${dd}`;
 }
 
+/** Data di pubblicazione (es. 21/04/2026). Usata sia nella Project List sia
+ *  nel pannello anteprima di Connections. */
+export function formatPublishDate(data) {
+  if (!data) return "";
+  const { giorno, mese, anno } = data;
+  if (giorno == null || mese == null || anno == null) {
+    if (anno != null) return String(anno);
+    return "";
+  }
+  const dd = String(giorno).padStart(2, "0");
+  const mm = String(mese).padStart(2, "0");
+  return `${dd}/${mm}/${anno}`;
+}
+
 /**
  * @param {HTMLElement} container
  * @param {{ tag: string; color?: string }[]} topTags da `legend.tags` (stesso ordinamento della legenda)
@@ -31,7 +45,7 @@ export function setupFilters(container, topTags, onSelect) {
 
     const heading = document.createElement("p");
     heading.className = "filters__heading mono";
-    heading.textContent = "Top 10 most used tag:";
+    heading.textContent = "Top 10 tags most used by the projects in the selected tag";
     container.appendChild(heading);
 
     const tagCluster = document.createElement("div");
@@ -41,7 +55,7 @@ export function setupFilters(container, topTags, onSelect) {
     const allBtn = document.createElement("button");
     allBtn.type = "button";
     allBtn.className = "filter-pill";
-    allBtn.innerHTML = `<span class="filter-pill__label">ALL PROJECTS</span>`;
+    allBtn.innerHTML = `<span class="filter-pill__label">All tags</span>`;
     allBtn.setAttribute("data-tag", "");
     tagCluster.appendChild(allBtn);
 
@@ -151,64 +165,79 @@ export function setupCursorCta(el) {
 }
 
 /**
+ * Tooltip che segue il cursore: mostra il riquadro "Shares N tags with X"
+ * (stesso markup/stile già usato nel pannello anteprima) quando, con un
+ * progetto già selezionato, si va in hover su un altro progetto attivo con
+ * cui condivide almeno un tag.
  * @param {HTMLElement} el
  */
 export function setupTooltip(el) {
   let visible = false;
-  let lastNodeId = null;
+  let lastKey = null;
 
+  // Angolo del tooltip ancorato al cursore basato sul quadrante dello
+  // schermo in cui ci si trova, non solo su un controllo reattivo
+  // dell'overflow: a sinistra il tooltip si apre verso destra, a destra
+  // verso sinistra; in alto verso il basso, in basso verso l'alto (al
+  // centro resta l'angolo in alto a sinistra, cioè si apre in basso a
+  // destra del cursore, comportamento di default).
   function position(clientX, clientY) {
     const pad = 16;
     const rect = el.getBoundingClientRect();
-    let x = clientX + pad;
-    let y = clientY + pad;
-    if (x + rect.width > window.innerWidth - pad) x = clientX - rect.width - pad;
-    if (y + rect.height > window.innerHeight - pad) y = clientY - rect.height - pad;
-    el.style.left = `${Math.max(pad, x)}px`;
-    el.style.top = `${Math.max(pad, y)}px`;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const openLeft = clientX > vw / 2;
+    const openUp = clientY > vh / 2;
+    let x = openLeft ? clientX - rect.width - pad : clientX + pad;
+    let y = openUp ? clientY - rect.height - pad : clientY + pad;
+    // Clamp difensivo su entrambi i lati: un tooltip più largo dello spazio
+    // disponibile dopo il flip non deve comunque uscire dal viewport.
+    x = Math.min(Math.max(pad, x), vw - rect.width - pad);
+    y = Math.min(Math.max(pad, y), vh - rect.height - pad);
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+  }
+
+  function hide() {
+    visible = false;
+    lastKey = null;
+    el.hidden = true;
+    el.innerHTML = "";
   }
 
   return {
-    show(node, event) {
-      // Su mousemove D3 richiama spesso `show`: non rigeneriamo l'HTML
-      // se il nodo è lo stesso, altrimenti l'immagine sembra “ricaricarsi”.
+    /**
+     * @param {object} node - progetto sotto hover
+     * @param {MouseEvent} event
+     * @param {{ highlightTags?: Set<string>, sharedWithTitle?: string }} [opts]
+     */
+    show(node, event, opts = {}) {
+      const highlightTags = opts.highlightTags instanceof Set ? opts.highlightTags : null;
+      const sharedWithTitle = typeof opts.sharedWithTitle === "string" ? opts.sharedWithTitle : "";
+      const html = previewSharedTagsHtml(node, highlightTags, sharedWithTitle);
+      if (!html) {
+        hide();
+        return;
+      }
       const nid = node?.id ?? null;
-      if (visible && nid && nid === lastNodeId) {
+      const key = `${nid}|${sharedWithTitle}`;
+      // Su mousemove D3 richiama spesso `show`: non rigeneriamo l'HTML se il
+      // riferimento non è cambiato, solo la posizione.
+      if (visible && key === lastKey) {
         position(event.clientX, event.clientY);
         return;
       }
-
       visible = true;
-      lastNodeId = nid;
+      lastKey = key;
       el.hidden = false;
-      const imgSrc = node.previewPath ? getPreviewHref(node.previewPath) : "";
-      const authorLine = node.autore
-        ? `<p class="tooltip__author">${escapeHtml(node.autore)}</p>`
-        : "";
-      const catDot = node.color
-        ? `<span class="tooltip__catDot" aria-hidden="true" style="background:${escapeHtml(
-            node.color
-          )}"></span>`
-        : "";
-      el.innerHTML = `
-        ${imgSrc ? `<img class="tooltip__img" src="${imgSrc}" alt="" loading="lazy" width="320" height="200">` : ""}
-        ${authorLine}
-        <h3 class="tooltip__title"><span class="tooltip__titleText">${escapeHtml(node.titolo)}${catDot}</span></h3>
-        <p class="tooltip__excerpt">${escapeHtml(excerpt(node.descrizione))}</p>
-        ${nodeTagsPanelHtml(node, "tooltip") || '<p class="tooltip__noTags mono">Nessun tag</p>'}
-      `;
+      el.innerHTML = html;
       position(event.clientX, event.clientY);
     },
     move(event) {
       if (!visible) return;
       position(event.clientX, event.clientY);
     },
-    hide() {
-      visible = false;
-      lastNodeId = null;
-      el.hidden = true;
-      el.innerHTML = "";
-    },
+    hide,
   };
 }
 
@@ -259,9 +288,9 @@ function previewAllTagsHtml(node) {
     .map((t) => String(t).trim())
     .filter(Boolean);
   if (!labels.length) {
-    return '<p class="preview-panel__tagsEmpty mono"><span class="preview-panel__tagsInlineLabel">Tag:</span> Nessun tag</p>';
+    return '<p class="preview-panel__tagsEmpty mono"><span class="preview-panel__tagsInlineLabel">Tags:</span> Nessun tag</p>';
   }
-  return `<p class="preview-panel__tags"><span class="preview-panel__tagsInlineLabel">Tag:</span> ${labels.map((l) => escapeHtml(l)).join(", ")}</p>`;
+  return `<p class="preview-panel__tags"><span class="preview-panel__tagsInlineLabel">Tags:</span> ${labels.map((l) => escapeHtml(l)).join(", ")}</p>`;
 }
 
 /** Riquadro "Shares N tags with <progetto>: tag1, tag2" — solo se
@@ -303,6 +332,7 @@ export function renderProjectPreviewHtml(node, opts = {}) {
   const sharedWithTitle = typeof opts.sharedWithTitle === "string" ? opts.sharedWithTitle : "";
   const backToListHref =
     typeof opts.backToListHref === "string" && opts.backToListHref ? opts.backToListHref : "";
+  const published = formatPublishDate(node.data) || formatDate(node.data);
 
   return `
     <article class="preview-panel" aria-live="polite">
@@ -314,7 +344,11 @@ export function renderProjectPreviewHtml(node, opts = {}) {
           : ""
       }
       <h2 class="preview-panel__title">${escapeHtml(node.titolo || "Senza titolo")}</h2>
-      ${node.autore ? `<p class="preview-panel__author">di ${escapeHtml(node.autore)}</p>` : ""}
+      ${
+        node.autore || published
+          ? `<p class="preview-panel__author">${escapeHtml(node.autore || "")}${node.autore && published ? " · " : ""}${escapeHtml(published || "")}</p>`
+          : ""
+      }
       <div class="preview-panel__lowerScroll" tabindex="0" aria-label="Dettagli progetto">
         ${previewSharedTagsHtml(node, highlightTags, sharedWithTitle)}
         ${previewAllTagsHtml(node)}

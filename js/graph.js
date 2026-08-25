@@ -71,8 +71,16 @@ function seedNodes(nodes, width, height, spread, usableHeight, yOffset) {
  */
 export function createGraphController(options) {
   const { svg, onNodeHover, onNodeLeave, onNodeClick } = options;
-  const decorative = !!options.decorative;
-  if (decorative) svg.classList.add("graph-svg--decorative");
+  // Mutabile (non `const`): `setInteractive()` la cambia a runtime, così lo
+  // stesso controller/simulazione può passare da "decorativo" (hero Home,
+  // niente hover/click/pan/zoom, solo drag) a interattivo (Connections)
+  // senza ricreare l'SVG né riseminare i nodi — cambia solo il
+  // comportamento, non il layout. Vedi `setInteractive` in fondo.
+  let decorative = !!options.decorative;
+  function syncDecorativeClass() {
+    svg.classList.toggle("graph-svg--decorative", decorative);
+  }
+  syncDecorativeClass();
   let networkModel = options.fullModel;
   const gRoot = d3.select(svg).select("#zoom-layer");
   const gLinks = gRoot.select("#links-layer");
@@ -81,18 +89,20 @@ export function createGraphController(options) {
 
   let width = svg.clientWidth || window.innerWidth;
   let height = svg.clientHeight || window.innerHeight;
-  // Limite inferiore: la filter-bar è `position: fixed; bottom: 0` quindi
-  // copre la parte bassa dell'SVG. Calcoliamo la y in coordinate SVG dove
-  // iniziano i tag, così i nodi non finiscono mai dietro.
+  // Su desktop la filter-bar (elenco tag) sta in alto a sinistra: non è più
+  // un ostacolo in basso. Su mobile resta ancorata in fondo, quindi va
+  // ancora evitata. Distinguiamo i due casi guardando dove si trova
+  // davvero il suo bordo superiore, invece di assumere una posizione fissa.
   const filterBarEl = document.getElementById("filter-bar");
   function computeBottomBound() {
-    // In modalità decorativa non c'è filter-bar: il bound inferiore è
-    // l'intera altezza dell'SVG (i nodi possono usare tutta la verticale).
     if (decorative) return height;
     const svgRect = svg.getBoundingClientRect();
     if (filterBarEl) {
       const r = filterBarEl.getBoundingClientRect();
-      if (r && Number.isFinite(r.top) && r.top > 0) {
+      // Ancorata in basso solo se il suo bordo superiore sta nella metà
+      // inferiore dello schermo (mobile); in alto a sinistra (desktop) non
+      // riduce lo spazio verticale utile del grafo.
+      if (r && Number.isFinite(r.top) && r.top > height / 2) {
         return Math.max(80, r.top - svgRect.top - 12);
       }
     }
@@ -100,9 +110,10 @@ export function createGraphController(options) {
   }
   let bottomBound = computeBottomBound();
 
-  // Quando la filter-bar cambia altezza (es. wrap dei tag) aggiorniamo il
-  // limite inferiore e diamo un piccolo restart alla simulazione così i
-  // nodi si ricompongono dentro l'area visibile.
+  // Quando la filter-bar cambia altezza (es. wrap dei tag, solo mobile:
+  // su desktop non ha più effetto, vedi sopra) aggiorniamo il limite
+  // inferiore e diamo un piccolo restart alla simulazione così i nodi si
+  // ricompongono dentro l'area visibile.
   if (filterBarEl && typeof ResizeObserver !== "undefined") {
     const ro = new ResizeObserver(() => {
       const next = computeBottomBound();
@@ -187,9 +198,20 @@ export function createGraphController(options) {
   let clearFocusFn = () => {};
   /** @type {(originId: string|null, keepIds: Set<string>|null) => void} */
   let renderHighlightLinksFn = () => {};
+  /** Ridisegna la vista ambient (tutte le coppie con tag in comune, incluse
+   *  quelle attenuate dei progetti "spenti"): usata anche da `setFilter`. */
+  let renderAllHighlightLinksFn = () => {};
+  /** Svuota del tutto il layer dei collegamenti (usato dal tutorial: durante
+   *  il passo 1 i nodi sono già attenuati via classe, ma lo sfondo ambient
+   *  dei collegamenti andrebbe comunque nascosto per non confondere la
+   *  messa in scena). */
+  let hideAllLinksFn = () => {};
   let pinnedNodeId = null;
   /** Set di id ancora interattivi quando un progetto è selezionato (null = nessuna selezione). */
   let selectionAllowedIds = null;
+  /** Id del progetto cliccato quando una selezione è attiva (per sapere chi
+   *  resta "origine" quando poi si va in hover su un altro progetto attivo). */
+  let selectedNodeId = null;
   /** Adiacenze (link) correnti: id → Set di id collegati (incluso se stesso). */
   let nodeNeighbors = new Map();
   /** @type {Map<string, {x:number,y:number}>} */
@@ -228,20 +250,23 @@ export function createGraphController(options) {
 
   applyScale(1);
 
-  if (!decorative) {
-    d3.select(svg).on("wheel.zoomScale", (event) => {
-      // zoom con rotella; nessun pan
-      event.preventDefault();
-      const delta = -event.deltaY;
-      const factor = Math.pow(1.0016, delta);
-      applyScale(viewScale * factor);
-    });
-  }
+  // Zoom/pan sempre agganciati (non solo se non-decorativo alla creazione):
+  // controllano `decorative` dal vivo a ogni evento, così `setInteractive()`
+  // li accende/spegne senza dover ri-registrare i listener.
+  d3.select(svg).on("wheel.zoomScale", (event) => {
+    if (decorative) return;
+    // zoom con rotella; nessun pan
+    event.preventDefault();
+    const delta = -event.deltaY;
+    const factor = Math.pow(1.0016, delta);
+    applyScale(viewScale * factor);
+  });
 
   // Pan trascinando lo sfondo (non nodi / non link).
   const panDrag = d3
     .drag()
     .filter((event) => {
+      if (decorative) return false;
       if (event.type === "mousedown" && event.button) return false;
       if (event.target?.closest?.(".graph-node")) return false;
       if (event.target?.closest?.("#links-layer")) return false;
@@ -261,20 +286,82 @@ export function createGraphController(options) {
       applyScale(viewScale);
     });
 
-  if (!decorative) d3.select(svg).call(panDrag);
+  d3.select(svg).call(panDrag);
 
-  // Scala per-nodo basata sull'overlap totale di tag: più tag in comune complessivi
-  // → pianeta più grande (range ~0.78x .. 1.85x rispetto allo step base).
+  // Dimensione per-nodo: uniforme (stesso "medio" per tutti) finché non c'è
+  // una selezione attiva. Il posizionamento resta invece sempre basato su
+  // `overlapRatio` (radialForNode/seedNodes, invariati) — qui cambia solo la
+  // dimensione visiva. Al click su un progetto, `applySelectionSizing`
+  // assegna a ogni nodo un `_selSizeFactor` dinamico in base ai tag
+  // condivisi col progetto selezionato (vedi sotto), con una transizione
+  // fluida; resta finché non si deseleziona.
   function nodeOverlapFactor(d) {
+    if (d && Number.isFinite(d._selSizeFactor)) return d._selSizeFactor;
+    return 1;
+  }
+
+  function sharedTagCount(a, b) {
+    const tagsA = new Set(
+      (a?.tagsNorm || []).map((t) => String(t).trim().toLowerCase()).filter(Boolean)
+    );
+    if (!tagsA.size) return 0;
+    const tagsB = new Set(
+      (b?.tagsNorm || []).map((t) => String(t).trim().toLowerCase()).filter(Boolean)
+    );
+    let count = 0;
+    for (const t of tagsA) if (tagsB.has(t)) count++;
+    return count;
+  }
+
+  // Raggio radiale per nodo: chi ha più tag in comune complessivi sta più
+  // vicino al centro. Legge `width`/`bottomBound` dal vivo (non li
+  // "congela" in chiusura): `resize()` può quindi rinfrescare la forza
+  // "radial" con lo stesso raggio target che userebbe un rebuild completo,
+  // così durante il morph hero→Connections i pianeti si aprono verso il
+  // nuovo bordo invece di restare ancorati alla scala della hero.
+  function radialForNode(d) {
+    const usableH = bottomBound > 0 ? bottomBound : height;
+    const maxRadial = Math.min(width, usableH) * 0.42;
+    const minRadial = Math.min(width, usableH) * 0.06;
     const r = Math.max(0, Math.min(1, Number(d?.overlapRatio) || 0));
-    return 0.78 + r * 1.07;
+    return minRadial + (1 - r) * (maxRadial - minRadial);
+  }
+
+  // Centro (e centro "filtro") verso cui convergono le forze radial/center/
+  // activeX/Y — ricalcolato da `rebuild()` (setup iniziale) e da `resize()`
+  // (finestra ridimensionata, o durante il morph hero→Connections) sugli
+  // stessi `width`/`height`/`bottomBound` correnti.
+  function computeCenters() {
+    // Il grafo occupa solo la porzione sinistra dello schermo (a destra c'è
+    // la colonna riservata al pannello anteprima, vedi --preview-reserve):
+    // centrare i nodi su `width/2` li lascia visivamente spostati a
+    // sinistra della pagina intera. Compensiamo spostando il centro dei
+    // nodi verso il centro reale della finestra, restando comunque dentro
+    // i limiti dell'SVG (il clamp in `ticked()` non cambia).
+    const centerX = decorative
+      ? width / 2
+      : width / 2 + Math.max(0, window.innerWidth - width) * 0.8;
+    // Il centro verticale considera l'area utile (sopra la filter-bar) e
+    // NON metà schermo: altrimenti, con tag su più righe, i nodi attivi
+    // finiscono visivamente nella metà inferiore. In modalità filtrata (o
+    // decorativa) azzeriamo l'offset così è esattamente al centro visivo
+    // dell'area.
+    const centerY = decorative
+      ? height / 2
+      : bottomBound / 2 + (activeTagFilter ? 0 : GRAPH_Y_OFFSET);
+    // Centro "filtro": punto verso cui convergono i progetti attivi. Lo
+    // bilanciamo verso destra del centro pure per allontanarli dal cluster
+    // degli inactive nell'angolo basso-sx.
+    const filterCenterX = centerX + width * 0.14;
+    const filterCenterY = centerY;
+    return { centerX, centerY, filterCenterX, filterCenterY };
   }
 
   function nodeDims(d) {
     const f = d ? nodeOverlapFactor(d) : 1;
     // Nodi "disattivati" (fuori dal filtro) → versione mini in basso a sx.
     const inactiveFactor = d?._inactive ? 0.42 : 1;
-    const thumbR = 12.2 * nodeScale * f * inactiveFactor;
+    const thumbR = 14 * nodeScale * f * inactiveFactor;
     const ringR = thumbR + 0.6;
     const hitR = 29 * nodeScale * Math.max(1, f) * inactiveFactor;
     // thumbBoxR: dimensione reale dell'immagine dentro il cerchio. Più
@@ -345,8 +432,7 @@ export function createGraphController(options) {
     nodeSel.each(function (d) {
       if (!d || !Number.isFinite(d.x) || !Number.isFinite(d.y)) return;
       // Inline di nodeDims().thumbR (evita allocazione dell'oggetto ogni tick).
-      const overlap = Math.max(0, Math.min(1, +d.overlapRatio || 0));
-      const f = 0.78 + overlap * 1.07;
+      const f = nodeOverlapFactor(d);
       const inactiveK = d._inactive ? 0.42 : 1;
       const r = baseThumb * f * inactiveK + boundPad;
 
@@ -419,7 +505,7 @@ export function createGraphController(options) {
     const density = Math.sqrt(n);
     const seedSpread =
       (isAllView ? 280 : 165) + Math.min(isAllView ? 720 : 340, n * (isAllView ? 9.5 : 6.8));
-    const chargeBase = (-380 - density * 52) * (isAllView ? 1.65 : 1.2);
+    const chargeBase = (-380 - density * 52) * (isAllView ? 1.78 : 1.3);
     // Su dataset medio-grandi accorciamo il raggio di repulsione: meno coppie
     // da valutare per il quadtree → tick più leggero.
     const chargeDistanceMax = n >= 35
@@ -427,19 +513,10 @@ export function createGraphController(options) {
       : (isAllView ? 560 : 420);
     const baseDims = nodeDims();
     // Buffer di anti-sovrapposizione: garantisce uno spazio minimo tra i pianeti.
-    const collisionBuffer = 18;
-    const collR = Math.max(baseDims.thumbR + collisionBuffer, isAllView ? 42 : 36);
+    const collisionBuffer = 24;
+    const collR = Math.max(baseDims.thumbR + collisionBuffer, isAllView ? 46 : 40);
     const linkDist =
-      ((135 + 920 / (density + 2.2)) / (1 + Math.log10(n + 3) * 0.1)) * 1.62;
-
-    // Raggio radiale per nodo: chi ha più tag in comune complessivi sta più vicino al centro.
-    const usableH = bottomBound > 0 ? bottomBound : height;
-    const maxRadial = Math.min(width, usableH) * 0.42;
-    const minRadial = Math.min(width, usableH) * 0.06;
-    function radialForNode(d) {
-      const r = Math.max(0, Math.min(1, Number(d?.overlapRatio) || 0));
-      return minRadial + (1 - r) * (maxRadial - minRadial);
-    }
+      ((135 + 920 / (density + 2.2)) / (1 + Math.log10(n + 3) * 0.1)) * 1.82;
 
     // Posizione dei nodi "disattivati" (no tag selezionato): angolo in basso a sx,
     // disposti in una griglietta compatta.
@@ -606,28 +683,28 @@ export function createGraphController(options) {
 
     nodeSel.classed("graph-node--inactive", (d) => !!d._inactive);
 
-    function sharedTagCount(a, b) {
-      const tagsA = new Set(
-        (a.tagsNorm || []).map((t) => String(t).trim().toLowerCase()).filter(Boolean)
-      );
-      if (!tagsA.size) return 0;
-      const tagsB = new Set(
-        (b.tagsNorm || []).map((t) => String(t).trim().toLowerCase()).filter(Boolean)
-      );
-      let count = 0;
-      for (const t of tagsA) if (tagsB.has(t)) count++;
-      return count;
-    }
-
     // Rende linea/alone + pallini per un elenco di coppie {id,source,target,count}.
     // Condivisa sia dal focus su singolo nodo (hover/click) sia dalla vista
-    // "tutte le coppie attive insieme" (mini-grafo decorativo della hero).
-    function renderHighlightPairs(pairs) {
+    // "tutte le coppie attive insieme" (baseline della pagina Connections +
+    // mini-grafo decorativo della hero): stesso stile animato con glow e
+    // pallini in entrambi i casi. Le coppie con `dim` (almeno un progetto
+    // "spento" dal filtro tag) restano invece una linea piatta e attenuata,
+    // senza pallini: stesso trattamento visivo dei nodi `.graph-node--inactive`.
+    // `fadeIn`: le coppie che ENTRANO partono da opacity 0 e transiscono a
+    // piena opacità, invece di comparire di scatto. Usato solo dal "reveal"
+    // esplicito dei collegamenti quando si attiva Connections dalla home
+    // (vedi `revealAmbientLinks`/graph-node--reveal più sotto): il rebuild
+    // e i normali refresh (hover, filtro) restano istantanei come prima.
+    function renderHighlightPairs(pairs, opts = {}) {
+      const fadeIn = !!opts.fadeIn;
       highlightLinkSel = gLinksHighlight
         .selectAll("line.focus-link")
         .data(pairs, (d) => d.id)
         .join(
-          (enter) => enter.append("line").attr("class", "focus-link"),
+          (enter) => {
+            const el = enter.append("line").attr("class", "focus-link");
+            return fadeIn ? el.style("opacity", 0) : el;
+          },
           (update) => update,
           (exit) => exit.remove()
         );
@@ -635,10 +712,15 @@ export function createGraphController(options) {
         .attr("x1", (d) => d.source.x)
         .attr("y1", (d) => d.source.y)
         .attr("x2", (d) => d.target.x)
-        .attr("y2", (d) => d.target.y);
+        .attr("y2", (d) => d.target.y)
+        .classed("focus-link--dim", (d) => !!d.dim);
+      if (fadeIn) {
+        highlightLinkSel.transition().duration(700).style("opacity", null);
+      }
 
       const dots = [];
       for (const pair of pairs) {
+        if (pair.dim) continue; // niente pallini animati sui collegamenti attenuati
         for (let i = 0; i < pair.count; i++) {
           dots.push({
             key: `${pair.id}-${i}`,
@@ -653,10 +735,16 @@ export function createGraphController(options) {
         .selectAll("circle.focus-link__dot")
         .data(dots, (d) => d.key)
         .join(
-          (enter) => enter.append("circle").attr("class", "focus-link__dot").attr("r", 2.2),
+          (enter) => {
+            const el = enter.append("circle").attr("class", "focus-link__dot").attr("r", 2.2);
+            return fadeIn ? el.style("opacity", 0) : el;
+          },
           (update) => update,
           (exit) => exit.remove()
         );
+      if (fadeIn) {
+        highlightDotSel.transition().duration(700).style("opacity", null);
+      }
       positionDots(performance.now());
       ensureDotAnim();
     }
@@ -666,7 +754,12 @@ export function createGraphController(options) {
     // statico precalcolato): così la linea collega sempre TUTTI i progetti
     // che restano attivi in quel momento. Sopra ogni linea, tanti pallini
     // animati in loop quanti sono i tag condivisi con quel progetto.
-    function renderHighlightLinks(originId, keepIds) {
+    // `dimIds` (opzionale): sottoinsieme di `keepIds` le cui linee vanno
+    // attenuate (niente pallini) invece che nello stile pieno — usato
+    // quando, con una selezione già attiva, si va in hover su UNO degli
+    // altri progetti attivi: la sua linea resta in evidenza, le altre si
+    // oscurano senza sparire.
+    function renderHighlightLinks(originId, keepIds, dimIds = null) {
       const origin = originId ? nodes.find((x) => x.id === originId) : null;
       const pairs = [];
       if (origin && keepIds) {
@@ -675,31 +768,38 @@ export function createGraphController(options) {
           const target = nodes.find((x) => x.id === id);
           if (target) {
             const count = Math.max(1, sharedTagCount(origin, target));
-            pairs.push({ id, source: origin, target, count });
+            pairs.push({ id, source: origin, target, count, dim: !!(dimIds && dimIds.has(id)) });
           }
         }
       }
       renderHighlightPairs(pairs);
     }
 
-    // Vista "tutte le coppie attive insieme": ogni coppia di progetti con
-    // almeno un tag in comune ottiene la propria linea/alone + pallini,
-    // simultaneamente. Usata nel mini-grafo decorativo della hero (Home).
-    function renderAllHighlightLinks() {
+    // Vista ambient "tutte le coppie con tag in comune insieme": baseline
+    // della pagina Connections (nessun hover/selezione attivi). Nella hero
+    // decorativa (Home) NON viene chiamata finché non si preme "Explore
+    // Connections" (vedi `revealAmbientLinks`/rebuild più sotto): i pianeti
+    // partono isolati, i collegamenti compaiono con un fade solo
+    // all'attivazione. Include anche le coppie che coinvolgono progetti
+    // "spenti" dal filtro tag, ma attenuate (`dim`): stessa logica visiva
+    // usata per i nodi stessi (`.graph-node--inactive`), invece di farle
+    // sparire del tutto.
+    function renderAllHighlightLinks(opts) {
       const pairs = [];
       const seen = new Set();
       for (const a of nodes) {
-        if (a._inactive) continue;
         for (const b of nodes) {
-          if (b._inactive || a.id === b.id) continue;
+          if (a.id === b.id) continue;
           const key = [String(a.id), String(b.id)].sort().join("--");
           if (seen.has(key)) continue;
           seen.add(key);
           const count = sharedTagCount(a, b);
-          if (count > 0) pairs.push({ id: key, source: a, target: b, count });
+          if (count > 0) {
+            pairs.push({ id: key, source: a, target: b, count, dim: !!(a._inactive || b._inactive) });
+          }
         }
       }
-      renderHighlightPairs(pairs);
+      renderHighlightPairs(pairs, opts);
     }
 
     function clearFocus() {
@@ -712,7 +812,9 @@ export function createGraphController(options) {
       nodeSel.classed("graph-node--focus", false);
       nodeSel.classed("graph-node--pinned", false);
       nodeSel.classed("graph-node--neighbor", false);
-      renderHighlightLinks(null, null);
+      // Niente hover/pin attivi: torna alla vista ambient con tutti i
+      // collegamenti attivi invece di lasciare il grafo senza linee.
+      renderAllHighlightLinks();
     }
 
     function tagRelatedIds(nodeId) {
@@ -748,8 +850,41 @@ export function createGraphController(options) {
       renderHighlightLinks(activeId, keep);
     }
 
+    // Con una selezione (click) già attiva, l'hover su UNO degli altri
+    // progetti ancora attivi (`selectionAllowedIds`) stringe ulteriormente il
+    // focus: solo il selezionato e quello sotto hover restano in evidenza,
+    // gli altri progetti attivi si attenuano insieme ai loro collegamenti
+    // (non spariscono, stesso trattamento visivo di `.graph-node--inactive`).
+    function applySelectionHover(hoverId) {
+      if (!selectionAllowedIds || !selectedNodeId) return;
+      nodeSel.classed(
+        "graph-node--selection-dim",
+        (d) =>
+          selectionAllowedIds.has(String(d.id)) &&
+          String(d.id) !== selectedNodeId &&
+          String(d.id) !== hoverId,
+      );
+      nodeSel.classed("graph-node--focus", (d) => String(d.id) === hoverId);
+      const dimIds = new Set(
+        [...selectionAllowedIds].filter((id) => String(id) !== hoverId),
+      );
+      renderHighlightLinks(selectedNodeId, selectionAllowedIds, dimIds);
+    }
+
+    // Fine hover (o hover sul progetto già selezionato): torna alla vista
+    // "piatta" della selezione, tutti i progetti attivi ugualmente in
+    // evidenza come subito dopo il click.
+    function revertSelectionFocus() {
+      if (!selectionAllowedIds) return;
+      nodeSel.classed("graph-node--selection-dim", false);
+      nodeSel.classed("graph-node--focus", false);
+      renderHighlightLinks(selectedNodeId, selectionAllowedIds);
+    }
+
     clearFocusFn = clearFocus;
     renderHighlightLinksFn = renderHighlightLinks;
+    renderAllHighlightLinksFn = renderAllHighlightLinks;
+    hideAllLinksFn = () => renderHighlightPairs([]);
     focusById = (id) => {
       if (!id) return clearFocus();
       const n = nodes.find((x) => x.id === id);
@@ -770,45 +905,66 @@ export function createGraphController(options) {
       }
     }
 
-    if (!decorative) {
+    {
+      // Listener sempre agganciati (non solo se non-decorativo al momento
+      // del rebuild): ognuno controlla `decorative` dal vivo appena entra,
+      // così `setInteractive()` li accende/spegne senza dover rifare il
+      // rebuild (che riseminerebbe i nodi, perdendo la posizione corrente).
       nodeSel
         .attr("tabindex", 0)
         .attr("role", "button")
         .attr("aria-label", (d) => `Progetto: ${d.titolo}`)
         .on("mouseenter", (event, d) => {
+          if (decorative) return;
           cancelHoverTimer();
           hoverTimerId = setTimeout(() => {
             hoverTimerId = null;
             hoverActiveId = d.id;
-            // Con una selezione attiva la vista resta fissa sul progetto
-            // cliccato: l'hover non deve cambiare i collegamenti evidenziati.
-            if (!pinnedNodeId && !selectionAllowedIds) applyFocus(d);
+            if (!pinnedNodeId && !selectionAllowedIds) {
+              applyFocus(d);
+            } else if (selectionAllowedIds && String(d.id) !== selectedNodeId) {
+              // Selezione già attiva: l'hover su un ALTRO progetto ancora
+              // attivo stringe il focus su {selezionato, hover}, attenuando
+              // gli altri invece di lasciare la vista fissa com'era prima.
+              applySelectionHover(String(d.id));
+            }
             if (onNodeHover) onNodeHover(d, event);
           }, HOVER_DELAY_MS);
         })
         .on("mousemove", (event, d) => {
+          if (decorative) return;
           if (hoverActiveId === d.id && onNodeHover) onNodeHover(d, event);
         })
         .on("mouseleave", () => {
+          if (decorative) return;
           cancelHoverTimer();
           const wasActive = hoverActiveId != null;
           hoverActiveId = null;
           if (wasActive) {
             if (!selectionAllowedIds) clearFocus();
+            else revertSelectionFocus();
             if (onNodeLeave) onNodeLeave();
           }
         })
         .on("click", (event, d) => {
+          if (decorative) return;
           event.stopPropagation();
           if (onNodeClick) onNodeClick(d, event);
         })
         .on("focus", (_event, d) => {
+          if (decorative) return;
           if (!pinnedNodeId && !selectionAllowedIds) applyFocus(d);
+          else if (selectionAllowedIds && String(d.id) !== selectedNodeId) {
+            applySelectionHover(String(d.id));
+          }
         })
         .on("blur", () => {
+          if (decorative) return;
           if (!selectionAllowedIds) clearFocus();
+          else revertSelectionFocus();
         })
         .on("keydown", (event, d) => {
+          if (decorative) return;
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             if (onNodeClick) onNodeClick(d, event);
@@ -848,20 +1004,7 @@ export function createGraphController(options) {
       ticked();
     }
 
-    const centerX = width / 2;
-    // Il centro verticale considera l'area utile (sopra la filter-bar) e
-    // NON metà schermo: altrimenti, con tag su più righe, i nodi attivi
-    // finiscono visivamente nella metà inferiore. In modalità filtrata
-    // (o decorativa) azzeriamo l'offset così è esattamente al centro
-    // visivo dell'area.
-    const centerY = decorative
-      ? height / 2
-      : bottomBound / 2 + (activeTagFilter ? 0 : GRAPH_Y_OFFSET);
-    // Centro "filtro": punto verso cui convergono i progetti attivi.
-    // Lo bilanciamo verso destra del centro pure per allontanarli dal
-    // cluster degli inactive nell'angolo basso-sx.
-    const filterCenterX = centerX + width * 0.14;
-    const filterCenterY = centerY;
+    const { centerX, centerY, filterCenterX, filterCenterY } = computeCenters();
 
     simulation = d3
       .forceSimulation(nodes)
@@ -973,9 +1116,13 @@ export function createGraphController(options) {
 
     applyVizLayers();
 
-    // Nel mini-grafo decorativo (hero Home) non ci sono hover/click: mostra
-    // subito tutte le coppie di progetti collegati, animate insieme.
-    if (decorative) renderAllHighlightLinks();
+    // Mostra subito tutte le coppie di progetti collegati (vista ambient):
+    // è la baseline della pagina Connections finché non si va in
+    // hover/selezione su un progetto specifico. Nel mini-grafo decorativo
+    // (hero Home) invece i pianeti restano isolati finché non si preme
+    // "Explore Connections" (vedi `revealAmbientLinks`), quindi qui NON
+    // renderizziamo nulla mentre `decorative` è vero.
+    if (!decorative) renderAllHighlightLinks();
   }
 
   function resize() {
@@ -984,7 +1131,32 @@ export function createGraphController(options) {
     bottomBound = computeBottomBound();
     applyScale(viewScale);
     if (simulation) {
-      simulation.force("center", d3.forceCenter(width / 2, bottomBound / 2 + GRAPH_Y_OFFSET));
+      // Rimpiazziamo (non solo "center", ma anche "radial"/"activeX/Y")
+      // così un salto di dimensioni grande — tipico durante il morph
+      // hero→Connections, dove l'SVG passa dal piccolo riquadro decorativo
+      // a tutto lo stage — fa "aprire" davvero i pianeti verso il nuovo
+      // centro/raggio invece di lasciarli ancorati alla scala precedente
+      // (radialForNode/computeCenters leggono width/height/bottomBound dal
+      // vivo, quindi bastano nuove istanze delle forze per farli ripartire
+      // dai valori aggiornati).
+      const { centerX, centerY, filterCenterX, filterCenterY } = computeCenters();
+      simulation.force(
+        "radial",
+        d3
+          .forceRadial((d) => (d._inactive ? 0 : radialForNode(d)), centerX, centerY)
+          .strength((d) =>
+            d._inactive ? 0 : activeTagFilter ? 0 : prefersReducedMotion ? 0.18 : 0.14,
+          ),
+      );
+      simulation.force(
+        "activeX",
+        d3.forceX(filterCenterX).strength((d) => (!d._inactive && activeTagFilter ? 0.38 : 0)),
+      );
+      simulation.force(
+        "activeY",
+        d3.forceY(filterCenterY).strength((d) => (!d._inactive && activeTagFilter ? 0.38 : 0)),
+      );
+      simulation.force("center", d3.forceCenter(centerX, centerY).strength(activeTagFilter ? 0 : 0.025));
       simulation.velocityDecay(0.58).alpha(0.22).restart();
     }
   }
@@ -1038,9 +1210,98 @@ export function createGraphController(options) {
     applyScale(viewScale);
   }
 
+  // Transizione fluida (r degli anelli/miniatura/hit-area + clipPath in
+  // <defs>) verso le dimensioni correnti di `nodeDims(d)`: condivisa da
+  // `setFilter` (nodi dis/riattivati dal filtro tag) e da
+  // `applySelectionSizing` (nodi ridimensionati dopo un click).
+  function transitionNodeSizes(durationMs) {
+    if (!nodeSel || nodeSel.empty()) return;
+    const tr = nodeSel.transition().duration(durationMs).ease(d3.easeCubicInOut);
+    tr.select("circle.graph-node__halo").attr("r", (d) => nodeDims(d).ringR * 1.5);
+    tr.select("circle.graph-node__ring").attr("r", (d) => nodeDims(d).ringR);
+    tr.select("image.graph-node__thumb")
+      .attr("x", (d) => -nodeDims(d).thumbBoxR)
+      .attr("y", (d) => -nodeDims(d).thumbBoxR)
+      .attr("width", (d) => nodeDims(d).thumbBoxD)
+      .attr("height", (d) => nodeDims(d).thumbBoxD);
+    tr.select("circle.graph-node__hit").attr("r", (d) => nodeDims(d).hitR);
+    // I clipPath vivono in <defs>, fuori da nodeSel: aggiorna il raggio del
+    // cerchio di ritaglio in parallelo (stessa durata/easing).
+    d3.select(svg)
+      .select("defs")
+      .selectAll("clipPath.node-thumb-clip circle")
+      .transition()
+      .duration(durationMs)
+      .ease(d3.easeCubicInOut)
+      .attr("r", (d) => nodeDims(d).thumbR);
+  }
+
+  const SELECTION_SIZE_TRANSITION_MS = 520;
+  // Nodo selezionato: sempre il più grande (ancora visivo dell'attenzione).
+  const SELECTION_SIZE_SELECTED_FACTOR = 2.05;
+  // Gli altri nodi si scalano tra questi due estremi in base a quanti tag
+  // condividono col selezionato: 0 tag in comune → il più piccolo, il
+  // massimo di tag in comune tra i nodi correnti → il più grande.
+  const SELECTION_SIZE_MIN_FACTOR = 0.6;
+  const SELECTION_SIZE_MAX_FACTOR = 1.65;
+
+  // Ridimensiona tutti i nodi in base ai tag condivisi col progetto
+  // selezionato (`selId`), con una transizione fluida; `null` riporta tutti
+  // alla dimensione uniforme di default (vedi `nodeOverlapFactor`). Il
+  // posizionamento (layout) non cambia: solo la dimensione visiva e, di
+  // conseguenza, il raggio di collisione usato dalla fisica.
+  function applySelectionSizing(selId) {
+    if (!currentNodes.length) return;
+    if (!selId) {
+      for (const n of currentNodes) n._selSizeFactor = null;
+    } else {
+      const origin = currentNodes.find((n) => n.id === selId);
+      const counts = new Map();
+      let maxCount = 0;
+      if (origin) {
+        for (const n of currentNodes) {
+          if (n.id === selId) continue;
+          const c = sharedTagCount(origin, n);
+          counts.set(n.id, c);
+          if (c > maxCount) maxCount = c;
+        }
+      }
+      for (const n of currentNodes) {
+        if (n.id === selId) {
+          n._selSizeFactor = SELECTION_SIZE_SELECTED_FACTOR;
+          continue;
+        }
+        const norm = maxCount > 0 ? (counts.get(n.id) || 0) / maxCount : 0;
+        n._selSizeFactor =
+          SELECTION_SIZE_MIN_FACTOR + norm * (SELECTION_SIZE_MAX_FACTOR - SELECTION_SIZE_MIN_FACTOR);
+      }
+    }
+    transitionNodeSizes(SELECTION_SIZE_TRANSITION_MS);
+    // Rinfresca il raggio di collisione (dipende da nodeDims/_selSizeFactor)
+    // e dà un piccolo "respiro" alla simulazione così i pianeti appena
+    // ingranditi non restano sovrapposti ai vicini; le altre forze (radiale,
+    // link, centro) restano quelle già attive, nessun cambio di layout.
+    if (simulation) {
+      simulation.nodes(currentNodes);
+      simulation.alpha(Math.max(simulation.alpha(), 0.22)).restart();
+    }
+  }
+
   return {
     rebuild,
     resize,
+    // Passa da decorativo (niente hover/click/pan/zoom, solo drag) a
+    // interattivo o viceversa, SENZA rifare il rebuild: stessa istanza di
+    // simulazione, stesse posizioni correnti dei nodi. Usato dal morph
+    // hero→Connections (vedi js/app.js) per accendere l'interattività a
+    // transizione visiva già avviata, invece di dover ricreare il grafo.
+    setInteractive(on) {
+      decorative = !on;
+      syncDecorativeClass();
+    },
+    isInteractive() {
+      return !decorative;
+    },
     setNetworkModel(model) {
       if (!model) return;
       networkModel = model;
@@ -1055,6 +1316,60 @@ export function createGraphController(options) {
     },
     clearFocus() {
       clearFocusFn();
+    },
+    hideAllLinks() {
+      hideAllLinksFn();
+    },
+    // Mostra i collegamenti ambient con un fade-in invece che di scatto:
+    // usato all'attivazione di Connections dalla home (vedi
+    // activateConnections in main.js), in coppia con `setInteractive(true)`.
+    revealAmbientLinks() {
+      renderAllHighlightLinksFn({ fadeIn: true });
+    },
+    // Dopo il morph hero→Connections (vedi main.js), quando il riquadro ha
+    // smesso di crescere: durante il trascinamento (resize() ripetuti
+    // mentre il box è ancora in movimento) l'alpha resta volutamente basso
+    // per un moto fluido, e la forza "center"/"radial" da sola non sempre
+    // basta a far rientrare del tutto i pianeti rimasti "impaccati" verso
+    // il bordo di partenza — dare una spinta più energica qui per farceli
+    // arrivare è un compromesso tarato a occhio (quanta energia, quanto a
+    // lungo) e non garantisce un risultato deterministico. Calcoliamo
+    // invece direttamente lo scarto tra il centro effettivo attuale del
+    // gruppo e il centro vero, e li spostiamo tutti in blocco di quella
+    // stessa quantità (traslazione rigida: le posizioni RELATIVE tra loro,
+    // già corrette, non cambiano) — niente forza, niente attesa, sono già
+    // dove devono essere.
+    settleLayout() {
+      if (!simulation || !currentNodes.length) return;
+      // NB: il bersaglio "pieno" di computeCenters() (centerX) è quello
+      // che la forza radial/center insegue per tutta la sua durata — ma
+      // essendo intenzionalmente debole, in un caricamento DIRETTO (seed
+      // centrato su width/2, non su centerX) la simulazione si ferma
+      // (alphaMin) senza mai arrivarci fino in fondo: si assesta a metà
+      // strada tra il centro "piatto" e il bersaglio con bias. Replichiamo
+      // qui la stessa metà strada, non il bersaglio pieno, altrimenti
+      // sovra-correggiamo rispetto a un caricamento diretto.
+      const { centerY } = computeCenters();
+      const biasX = Math.max(0, window.innerWidth - width) * 0.8;
+      const targetX = width / 2 + biasX * 0.45;
+      let sx = 0;
+      let sy = 0;
+      let n = 0;
+      for (const node of currentNodes) {
+        if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) continue;
+        sx += node.x;
+        sy += node.y;
+        n++;
+      }
+      if (!n) return;
+      const dx = targetX - sx / n;
+      const dy = centerY - sy / n;
+      for (const node of currentNodes) {
+        if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) continue;
+        node.x += dx;
+        node.y += dy;
+      }
+      ticked();
     },
     pinNode(id) {
       pinnedNodeId = id ? String(id) : null;
@@ -1076,6 +1391,7 @@ export function createGraphController(options) {
             ? new Set(allowedIds.map(String))
             : null;
       const selId = selectedId != null ? String(selectedId) : null;
+      selectedNodeId = selId;
       // Azzera eventuali evidenziazioni rimaste dall'hover precedente al
       // click, poi riapplica linee/alone per il progetto selezionato: la
       // vista resta fissa mostrando solo i collegamenti di `selId`.
@@ -1087,16 +1403,21 @@ export function createGraphController(options) {
         nodeSel.classed("graph-node--selected", (d) =>
           selId != null && String(d.id) === selId,
         );
+        nodeSel.classed("graph-node--selection-dim", false);
       }
       renderHighlightLinksFn(selId, selId ? selectionAllowedIds : null);
+      applySelectionSizing(selId);
     },
     clearSelection() {
       selectionAllowedIds = null;
+      selectedNodeId = null;
       if (nodeSel && !nodeSel.empty()) {
         nodeSel.classed("graph-node--off", false);
         nodeSel.classed("graph-node--selected", false);
+        nodeSel.classed("graph-node--selection-dim", false);
       }
-      renderHighlightLinksFn(null, null);
+      applySelectionSizing(null);
+      clearFocusFn();
     },
     // Id dei progetti collegati a `id` (gli stessi evidenziati in hover),
     // incluso `id` stesso.
@@ -1156,6 +1477,11 @@ export function createGraphController(options) {
       // Ricomputa i target dell'angolo basso-sx per gli inactive.
       applyInactiveLayoutFn();
 
+      // Rinfresca la vista ambient dei collegamenti con i nuovi flag
+      // `_inactive` (progetti fuori dal filtro → linee attenuate), a meno
+      // che non ci sia già un hover/pin/selezione attivi da preservare.
+      if (!pinnedNodeId && !selectionAllowedIds) renderAllHighlightLinksFn();
+
       // Aggiorna i parametri delle forze sensibili al filtro.
       simulation.force("center")?.strength(activeTagFilter ? 0 : 0.025);
 
@@ -1168,25 +1494,8 @@ export function createGraphController(options) {
 
       // Aggiorna le dimensioni dei nodi con una transizione (rimpicciolimento/
       // ingrandimento fluido).
+      transitionNodeSizes(FILTER_TRANSITION_MS);
       if (nodeSel && !nodeSel.empty()) {
-        const tr = nodeSel.transition().duration(FILTER_TRANSITION_MS).ease(d3.easeCubicInOut);
-        tr.select("circle.graph-node__halo").attr("r", (d) => nodeDims(d).ringR * 1.5);
-        tr.select("circle.graph-node__ring").attr("r", (d) => nodeDims(d).ringR);
-        tr.select("image.graph-node__thumb")
-          .attr("x", (d) => -nodeDims(d).thumbBoxR)
-          .attr("y", (d) => -nodeDims(d).thumbBoxR)
-          .attr("width", (d) => nodeDims(d).thumbBoxD)
-          .attr("height", (d) => nodeDims(d).thumbBoxD);
-        tr.select("circle.graph-node__hit").attr("r", (d) => nodeDims(d).hitR);
-        // I clipPath vivono in <defs>, fuori da nodeSel: aggiorna il raggio
-        // del cerchio di ritaglio in parallelo (stessa durata/easing).
-        d3.select(svg)
-          .select("defs")
-          .selectAll("clipPath.node-thumb-clip circle")
-          .transition()
-          .duration(FILTER_TRANSITION_MS)
-          .ease(d3.easeCubicInOut)
-          .attr("r", (d) => nodeDims(d).thumbR);
         nodeSel.classed("graph-node--inactive", (d) => !!d._inactive);
       }
 

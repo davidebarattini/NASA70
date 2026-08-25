@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NASA70 — Projects</title>
-  <link rel="stylesheet" href="css/main.css?v=cta-titlecase">
+  <title>NASA70 — Home</title>
+  <link rel="stylesheet" href="css/main.css?v=settle-direct2">
 </head>
-<body class="page-explore">
+<body class="page-top10 mode-home" data-mode="home">
   <header class="site-header">
     <div class="site-header__start">
       <a class="brand" href="index.html" aria-label="Torna alla Home">
         <img class="brand__logo" src="Logo/Logo2.png?v=2" alt="NASA 70 Archive" width="3465" height="1232" decoding="async">
       </a>
       <nav class="site-nav" aria-label="Sezioni">
-        <a class="site-nav__link" href="explore.html">
+        <a class="site-nav__link" href="explore.html" id="nav-connections-link">
           <span class="site-nav__linkLabel">Connections</span>
           <span class="site-nav__linkParticles" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
         </a>
@@ -22,42 +22,65 @@
         </a>
       </nav>
     </div>
+    <button type="button" class="header__menuButton" id="legend-toggle" aria-label="Apri menu" aria-controls="legend-panel" aria-expanded="false">
+      <span class="header__menuIcon" aria-hidden="true"></span>
+    </button>
+    <p class="header-meta" aria-hidden="true"><span id="coord-readout" class="mono"></span></p>
   </header>
 
-  <main class="explore-main" id="explore-main">
-    <div class="explore-main__inner">
-      <section class="hero-nasa" aria-labelledby="hero-title">
-        <div class="hero-nasa__text">
-          <h1 class="hero-nasa__title" id="hero-title">70th Anniversary<br>Project Archive</h1>
-          <p class="hero-nasa__lead">An interactive collection of web projects celebrating<br>70 years of NASA</p>
-          <p class="hero-nasa__body">Each project explores a different mission, technology, or chapter of space history. Rather than a simple list sorted by date or author, this archive lets you explore the collection through its connections: every project is described by a set of tags, and projects sharing the same tags are linked together, revealing how they relate to one another.</p>
-          <a class="hero-nasa__cta" href="explore.html">
-            <span class="hero-nasa__ctaLabel">Explore Connections</span>
-            <span class="hero-nasa__ctaParticles" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
-          </a>
-        </div>
-        <div class="hero-nasa__visual" aria-hidden="true">
-          <svg id="hero-graph-svg" class="graph-svg hero-graph-svg" role="presentation" focusable="false">
-            <defs>
-              <filter id="hero-node-glow" x="-80%" y="-80%" width="260%" height="260%">
-                <feGaussianBlur stdDeviation="1.8" result="b"/>
-                <feMerge>
-                  <feMergeNode in="b"/>
-                  <feMergeNode in="SourceGraphic"/>
-                </feMerge>
-              </filter>
-            </defs>
-            <g id="zoom-layer">
-              <g id="links-layer"></g>
-              <g id="links-highlight-layer"></g>
-              <g id="nodes-layer"></g>
-            </g>
-          </svg>
-        </div>
-      </section>
-    </div>
-  </main>
+  <div class="home-hero" id="home-hero">
+    <h1 class="hero-nasa__title" id="hero-title">70th Anniversary<br>Project Archive</h1>
+    <p class="hero-nasa__lead">An interactive collection of web projects celebrating<br>70 years of NASA</p>
+    <p class="hero-nasa__body">Each project explores a different mission, technology, or chapter of space history. Rather than a simple list sorted by date or author, this archive lets you explore the collection through its connections: every project is described by a set of tags, and projects sharing the same tags are linked together, revealing how they relate to one another.</p>
+    <a class="hero-nasa__cta" href="explore.html" id="hero-cta">
+      <span class="hero-nasa__ctaLabel">Explore Connections</span>
+      <span class="hero-nasa__ctaParticles" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+    </a>
+  </div>
 
-  <script type="module" src="js/explore.js?v=tutorial-pos-fix2"></script>
+  <div class="top10-shell" id="top10-shell">
+    <div class="top10-graph-pane" id="top10-graph-pane">
+      <aside class="legend" id="legend-panel" aria-label="Legenda colori"></aside>
+      <main class="main-stage" id="main-stage">
+        <canvas id="starfield" class="starfield" aria-hidden="true"></canvas>
+        <svg id="graph-svg" class="graph-svg" role="application" aria-label="Rete interattiva dei progetti del corso">
+          <defs>
+            <filter id="node-glow" x="-80%" y="-80%" width="260%" height="260%">
+              <feGaussianBlur stdDeviation="1.8" result="b"/>
+              <feMerge>
+                <feMergeNode in="b"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+          <g id="zoom-layer">
+            <g id="links-layer"></g>
+            <g id="links-highlight-layer"></g>
+            <g id="nodes-layer"></g>
+          </g>
+        </svg>
+      </main>
+      <nav class="filters" id="filter-bar" aria-label="Filtra per tag"></nav>
+    </div>
+
+    <aside class="top10-preview-pane" id="preview-pane" aria-label="Anteprima progetto">
+      <div class="top10-preview-pane__inner" id="preview-inner">
+        <p class="top10-preview__empty">Select a project to preview</p>
+      </div>
+    </aside>
+  </div>
+
+  <div id="mobile-peek" class="mobile-peek" hidden aria-live="polite"></div>
+
+  <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
+
+  <div id="modal" class="modal" hidden aria-modal="true" role="dialog" aria-labelledby="modal-title">
+    <div class="modal__backdrop" data-modal-close></div>
+    <div class="modal__panel">
+      <div class="modal__inner" id="modal-inner"></div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js?v=settle-direct2"></script>
 </body>
 </html>

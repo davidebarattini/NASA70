@@ -391,6 +391,43 @@ const PREVIEW_FILES = [
   "solarscale_2.jpg",
   "spacesuits_1.jpg",
   "spacesuits_2.jpg",
+  "beyondthemyth_alt1.avif",
+  "beyondthemyth_alt2.jpeg",
+  "eyesonearth_alt1.webp",
+  "eyesonearth_alt2.jpg",
+  "eyesonearth_alt3.jpg",
+  "hubble_alt1.jpg",
+  "hubble_alt2.jpeg",
+  "hubble_alt3.jpeg",
+  "lunararchive_alt1.webp",
+  "lunararchive_alt2.jpg",
+  "lunararchive_alt3.webp",
+  "moonprint_alt1.jpg",
+  "moonprint_alt2.jpg",
+  "moonprint_alt3.jpg",
+  "nebulavision_alt1.webp",
+  "nebulavision_alt2.jpg",
+  "nebulavision_alt3.jpg",
+  "neoprotocol_alt1.avif",
+  "neoprotocol_alt2.jpg",
+  "neoprotocol_alt3.jpg",
+  "otherworlds_alt1.webp",
+  "otherworlds_alt2.avif",
+  "otherworlds_alt3.webp",
+  "perseverancerover_alt1.webp",
+  "perseverancerover_alt2.webp",
+  "perseverancerover_alt3.jpg",
+  "projectmoonbound_alt1.jpg",
+  "projectmoonbound_alt2.jpg",
+  "projectmoonbound_alt3.jpg",
+  "radiowave_alt1.jpg",
+  "radiowave_alt2.webp",
+  "radiowave_alt3.webp",
+  "solarscale_alt1.avif",
+  "solarscale_alt2.jpg",
+  "solarscale_alt3.jpg",
+  "spacesuits_alt1.jpg",
+  "spacesuits_alt2.jpg",
 ];
 
 /** Nomi nel JSON (progetti finti) → stem normalizzato dei file in Preview. */
@@ -506,7 +543,7 @@ function previewPathsFromProject(p) {
  * Versione asset immagini: cambiala quando aggiorni i file in `Preview/`
  * mantenendo lo stesso nome, così i browser ricaricano la nuova versione.
  */
-const PREVIEW_ASSET_VERSION = "20260617";
+const PREVIEW_ASSET_VERSION = "20260824-opt";
 
 /** URL sicuro per `<img>` / SVG `<image>` (spazi, `#`, ecc. nel nome file). */
 export function getPreviewHref(path) {

@@ -1,8 +1,7 @@
 import { buildNetwork, getPreviewHref } from "./graphData.js";
 import { loadProjectsRaw } from "./loadData.js";
-import { formatDate } from "./ui.js";
+import { formatDate, formatPublishDate } from "./ui.js?v=settle-direct2";
 import { initHeaderScroll } from "./headerScroll.js";
-import { createGraphController } from "./graph.js";
 
 initHeaderScroll();
 
@@ -23,19 +22,6 @@ function escapeHtml(s) {
 
 function escapeAttr(s) {
   return String(s).replace(/"/g, "&quot;");
-}
-
-/** Data di pubblicazione (es. 21/04/2026). */
-function formatPublishDate(data) {
-  if (!data) return "";
-  const { giorno, mese, anno } = data;
-  if (giorno == null || mese == null || anno == null) {
-    if (anno != null) return String(anno);
-    return "";
-  }
-  const dd = String(giorno).padStart(2, "0");
-  const mm = String(mese).padStart(2, "0");
-  return `${dd}/${mm}/${anno}`;
 }
 
 function projectTimestamp(data) {
@@ -77,6 +63,16 @@ function sortNodes(nodes, sortBy) {
   }
 }
 
+function cardTagsHtml(node) {
+  const labels = (node.tagsDisplay?.length ? node.tagsDisplay : node.tagsNorm || [])
+    .map((t) => String(t).trim())
+    .filter(Boolean);
+  if (!labels.length) {
+    return '<p class="explore-card__tags"><span class="explore-card__tagsLabel">Tags:</span> Nessun tag</p>';
+  }
+  return `<p class="explore-card__tags"><span class="explore-card__tagsLabel">Tags:</span> ${labels.map((l) => escapeHtml(l)).join(", ")}</p>`;
+}
+
 function renderExploreList(nodes, sortBy) {
   const sorted = sortNodes(nodes, sortBy);
 
@@ -90,109 +86,85 @@ function renderExploreList(nodes, sortBy) {
       const primary = paths[0] ? getPreviewHref(paths[0]) : "";
       const published = formatPublishDate(node.data) || formatDate(node.data);
 
-      const mediaHtml = primary
-        ? `<button type="button" class="explore-item__media" aria-expanded="false" aria-label="Apri dettagli di ${escapeAttr(node.titolo || "progetto")}">
-            <img class="explore-item__img explore-item__img--primary" src="${escapeAttr(primary)}" alt="" loading="lazy" width="220" height="150">
-          </button>`
-        : `<button type="button" class="explore-item__media explore-item__media--empty" aria-expanded="false" aria-label="Apri dettagli di ${escapeAttr(node.titolo || "progetto")}"></button>`;
+      const heroHtml = primary
+        ? `<div class="explore-card__heroWrap">
+            <img class="explore-card__hero" src="${escapeAttr(primary)}" alt="" loading="lazy" width="220" height="150">
+          </div>`
+        : `<div class="explore-card__heroWrap explore-card__heroWrap--empty"></div>`;
 
       return `
-        <li class="explore-item" id="proj-${escapeAttr(node.id)}">
-          <div class="explore-item__row">
-            <h2 class="explore-item__title">${escapeHtml(node.titolo || "Senza titolo")}</h2>
-            ${node.autore ? `<p class="explore-item__author">${escapeHtml(node.autore)}</p>` : '<p class="explore-item__author explore-item__author--empty" aria-hidden="true">&nbsp;</p>'}
-            ${mediaHtml}
-            <p class="explore-item__date mono">${escapeHtml(published)}</p>
+        <li class="explore-card" id="proj-${escapeAttr(node.id)}">
+          ${heroHtml}
+          <h2 class="explore-card__title">${escapeHtml(node.titolo || "Senza titolo")}</h2>
+          ${
+            node.autore || published
+              ? `<p class="explore-card__author">${escapeHtml(node.autore || "")}${node.autore && published ? " · " : ""}${escapeHtml(published || "")}</p>`
+              : ""
+          }
+          ${cardTagsHtml(node)}
+          <div class="explore-card__descWrap">
+            <p class="explore-card__desc">${escapeHtml(node.descrizione || "")}</p>
+            <span class="explore-card__descFade" aria-hidden="true">…</span>
           </div>
-          <div class="explore-item__expand">
-            <div class="explore-item__expandInner">
-              <p class="explore-item__desc">${escapeHtml(node.descrizione || "")}</p>
-              <div class="explore-item__actions">
-                ${
-                  node.url
-                    ? `<a class="explore-item__link explore-item__link--primary mono" href="${escapeAttr(node.url)}" target="_blank" rel="noopener noreferrer">
-                        <span class="explore-item__linkLabel">Open Project</span>
-                        <span class="explore-item__linkArrow" aria-hidden="true">
-                          <svg viewBox="0 0 24 24" fill="none" focusable="false"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        </span>
-                      </a>`
-                    : ""
-                }
-                <a class="explore-item__link explore-item__link--secondary mono" href="explore.html?focus=${escapeAttr(node.id)}">
-                  <span class="explore-item__linkLabel">Show Connections</span>
-                  <span class="explore-item__linkParticles" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
-                </a>
-              </div>
-            </div>
+          <div class="explore-card__actions">
+            ${
+              node.url
+                ? `<a class="explore-card__cta explore-card__cta--primary" href="${escapeAttr(node.url)}" target="_blank" rel="noopener noreferrer">
+                    <span class="explore-card__ctaLabel">Open Project</span>
+                    <span class="explore-card__ctaArrow" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" focusable="false"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                  </a>`
+                : ""
+            }
+            <a class="explore-card__cta explore-card__cta--secondary" href="explore.html?focus=${escapeAttr(node.id)}">
+              <span class="explore-card__ctaLabel">Show Connections</span>
+              <span class="explore-card__ctaParticles" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+            </a>
           </div>
         </li>`;
     })
     .join("");
 }
 
-/**
- * L'altezza aperta di ".explore-item__expand" non può essere un valore fisso
- * uguale per tutti (rende l'animazione a scatti quando il contenuto reale è
- * molto più corto): misuriamo l'altezza naturale del testo completo di ogni
- * card e la salviamo in --expand-full, usata dalla transizione CSS.
+/** "…" di fondo sulla descrizione: visibile solo se il testo non entra
+ *  tutto in 4 righe, e solo finché non si inizia a scrollare. Il listener
+ *  di scroll va agganciato UNA volta sola su `listEl` (in cattura, perché
+ *  "scroll" non risale/bubbla fino al genitore): ritorna una funzione
+ *  `refresh` da richiamare ad ogni nuovo render (sort/ricerca) per
+ *  ricalcolare quali descrizioni hanno davvero bisogno della "…".
  */
-function measureExpandHeights(listEl) {
-  if (!listEl) return;
-  listEl.querySelectorAll(".explore-item__expand").forEach((expand) => {
-    const desc = expand.querySelector(".explore-item__desc");
-    if (!desc) return;
-    const prevTransition = expand.style.transition;
-    const prevMaxHeight = expand.style.maxHeight;
-    const prevDescDisplay = desc.style.display;
+function setupDescScroll(listEl) {
+  if (!listEl) return () => {};
 
-    expand.style.transition = "none";
-    expand.style.maxHeight = "none";
-    desc.style.display = "block";
-    const fullHeight = expand.scrollHeight;
-
-    expand.style.maxHeight = prevMaxHeight;
-    desc.style.display = prevDescDisplay;
-    expand.style.setProperty("--expand-full", `${fullHeight}px`);
-    void expand.offsetHeight;
-    expand.style.transition = prevTransition;
-  });
-}
-
-function setupListItemToggle(listEl) {
-  if (!listEl) return;
-
-  listEl.addEventListener("click", (e) => {
-    const media = e.target.closest(".explore-item__media");
-    if (!media || !listEl.contains(media)) return;
-
-    const item = media.closest(".explore-item");
-    if (!item) return;
-
-    const willOpen = !item.classList.contains("explore-item--open");
-    listEl.querySelectorAll(".explore-item--open").forEach((el) => {
-      el.classList.remove("explore-item--open");
-      el.querySelector(".explore-item__media")?.setAttribute("aria-expanded", "false");
+  function refresh() {
+    listEl.querySelectorAll(".explore-card__descWrap").forEach((wrap) => {
+      const desc = wrap.querySelector(".explore-card__desc");
+      if (!desc) return;
+      const hasOverflow = desc.scrollHeight > desc.clientHeight + 1;
+      wrap.classList.toggle("explore-card__descWrap--noOverflow", !hasOverflow);
     });
+  }
 
-    if (willOpen) {
-      item.classList.add("explore-item--open");
-      media.setAttribute("aria-expanded", "true");
-    }
+  listEl.addEventListener(
+    "scroll",
+    (e) => {
+      const desc = e.target;
+      if (!desc.classList?.contains("explore-card__desc")) return;
+      desc
+        .closest(".explore-card__descWrap")
+        ?.classList.toggle("explore-card__descWrap--scrolled", desc.scrollTop > 1);
+    },
+    true,
+  );
+
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(refresh, 150);
   });
 
-  // Un progetto può restare "aperto" in modo permanente (es. al ritorno da
-  // "Mostra collegamenti"): se si passa col mouse su un altro progetto,
-  // quello va chiuso, altrimenti risulterebbero aperti due insieme.
-  listEl.addEventListener("mouseover", (e) => {
-    const item = e.target.closest(".explore-item");
-    if (!item || !listEl.contains(item)) return;
-
-    listEl.querySelectorAll(".explore-item--open").forEach((el) => {
-      if (el === item) return;
-      el.classList.remove("explore-item--open");
-      el.querySelector(".explore-item__media")?.setAttribute("aria-expanded", "false");
-    });
-  });
+  return refresh;
 }
 
 function filterNodesBySearch(nodes, query) {
@@ -222,6 +194,8 @@ function setupSortFilter({
 
   toolbarEl?.removeAttribute("hidden");
 
+  const refreshDescOverflow = setupDescScroll(listEl);
+
   let selected = "recent";
   let searchQuery = "";
 
@@ -249,7 +223,7 @@ function setupSortFilter({
     renderOptions();
     const visible = filterNodesBySearch(allNodes, searchQuery);
     listEl.innerHTML = renderExploreList(visible, selected);
-    measureExpandHeights(listEl);
+    refreshDescOverflow();
   }
 
   function setOpen(open) {
@@ -283,12 +257,6 @@ function setupSortFilter({
     if (e.key === "Escape") setOpen(false);
   });
 
-  let resizeTimer = null;
-  window.addEventListener("resize", () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => measureExpandHeights(listEl), 150);
-  });
-
   applySort();
 }
 
@@ -307,10 +275,8 @@ function scrollToFocusedProject() {
   if (!target) return;
   requestAnimationFrame(() => {
     target.scrollIntoView({ behavior: "smooth", block: "center" });
-    target.classList.add("explore-item--focused");
-    target.classList.add("explore-item--open");
-    target.querySelector(".explore-item__media")?.setAttribute("aria-expanded", "true");
-    setTimeout(() => target.classList.remove("explore-item--focused"), 1600);
+    target.classList.add("explore-card--focused");
+    setTimeout(() => target.classList.remove("explore-card--focused"), 1600);
   });
 }
 
@@ -323,33 +289,29 @@ async function main() {
   const panelEl = document.getElementById("explore-sort-panel");
   const listboxEl = document.getElementById("explore-sort-list");
   const searchInputEl = document.getElementById("explore-search-input");
-  const heroSvg = document.getElementById("hero-graph-svg");
 
-  // Lo stesso script serve sia la Home (solo grafo hero) sia la scheda
-  // "Project List" (solo lista). Se non c'è né lista né hero, non fare nulla.
-  if (!listEl && !heroSvg) return;
+  // La Home ha ora il suo grafo (decorativo→interattivo) gestito da
+  // main.js, vedi index.html/explore.html: questo script serve solo più la
+  // scheda "Project List".
+  if (!listEl) return;
 
   if (statusEl) statusEl.hidden = false;
 
   try {
     const raw = await loadProjectsRaw();
     const model = buildNetwork(raw);
-    if (listEl) {
-      setupListItemToggle(listEl);
-      setupSortFilter({
-        toolbarEl,
-        triggerEl,
-        valueEl,
-        panelEl,
-        listboxEl,
-        listEl,
-        searchInputEl,
-        allNodes: model.nodes,
-      });
-      scrollToFocusedProject();
-    }
+    setupSortFilter({
+      toolbarEl,
+      triggerEl,
+      valueEl,
+      panelEl,
+      listboxEl,
+      listEl,
+      searchInputEl,
+      allNodes: model.nodes,
+    });
+    scrollToFocusedProject();
     if (statusEl) statusEl.hidden = true;
-    setupHeroDecorativeGraph(model);
   } catch (err) {
     console.error(err);
     if (statusEl) {
@@ -358,32 +320,6 @@ async function main() {
       statusEl.hidden = false;
     }
   }
-}
-
-/**
- * Inizializza il grafo decorativo nella hero (PROJECTS).
- * Non interattivo: nessun hover/click callback, e l'SVG ha
- * `pointer-events: none` via CSS, quindi è solo un'anteprima visiva
- * dello stesso layout della pagina Explore.
- */
-function setupHeroDecorativeGraph(model) {
-  const svg = document.getElementById("hero-graph-svg");
-  if (!svg || !model) return;
-  // Mostra tutti i progetti anche nella hero (PROJECTS).
-  const decorModel = model;
-  // Attendi il prossimo paint così l'SVG ha dimensioni reali (`clientWidth/Height`).
-  requestAnimationFrame(() => {
-    try {
-      const graph = createGraphController({
-        svg,
-        fullModel: decorModel,
-        decorative: true,
-      });
-      graph.rebuild();
-    } catch (err) {
-      console.warn("Hero decorative graph init failed:", err);
-    }
-  });
 }
 
 main();
