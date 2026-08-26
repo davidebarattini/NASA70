@@ -724,6 +724,7 @@ export function createGraphController(options) {
     // e i normali refresh (hover, filtro) restano istantanei come prima.
     function renderHighlightPairs(pairs, opts = {}) {
       const fadeIn = !!opts.fadeIn;
+      const noDots = !!opts.noDots;
       highlightLinkSel = gLinksHighlight
         .selectAll("line.focus-link")
         .data(pairs, (d) => d.id)
@@ -740,13 +741,20 @@ export function createGraphController(options) {
         .attr("y1", (d) => d.source.y)
         .attr("x2", (d) => d.target.x)
         .attr("y2", (d) => d.target.y)
-        .classed("focus-link--dim", (d) => !!d.dim);
+        .classed("focus-link--dim", (d) => !!d.dim)
+        // Vista ambient (nessun hover/selezione): linee più trasparenti di
+        // quelle "in evidenza" di un hover/click, che restano invariate.
+        .classed("focus-link--ambient", noDots);
       if (fadeIn) {
         highlightLinkSel.transition().duration(700).style("opacity", null);
       }
 
       const dots = [];
-      for (const pair of pairs) {
+      // Niente pallini nella vista ambient (nessun hover/selezione attivi):
+      // solo linee ferme, i pallini animati compaiono unicamente sui
+      // collegamenti del progetto sotto hover/selezionato (vedi
+      // renderHighlightLinks/applyFocus/applySelectionHover più sotto).
+      for (const pair of noDots ? [] : pairs) {
         if (pair.dim) continue; // niente pallini animati sui collegamenti attenuati
         for (let i = 0; i < pair.count; i++) {
           dots.push({
@@ -826,7 +834,7 @@ export function createGraphController(options) {
           }
         }
       }
-      renderHighlightPairs(pairs, opts);
+      renderHighlightPairs(pairs, { ...opts, noDots: true });
     }
 
     function clearFocus() {

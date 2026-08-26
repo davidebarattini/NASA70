@@ -423,6 +423,15 @@ body {
   filter: drop-shadow(0 0 3px rgba(126, 184, 255, 0.95));
 }
 
+/* Vista ambient (nessun hover/selezione attivi, niente pallini animati,
+   vedi renderAllHighlightLinks): linee più trasparenti di quelle "in
+   evidenza" mostrate in hover/click su un progetto, che restano invariate
+   (.focus-link di base). */
+.graph-svg .focus-link--ambient {
+  stroke-opacity: 0.14;
+  filter: none;
+}
+
 /* Coppie che coinvolgono un progetto "spento" dal filtro tag: stessa
    attenuazione visiva dei nodi .graph-node--inactive (non spariscono, solo
    una linea piatta senza glow né pallini animati — quelli restano solo per
@@ -785,15 +794,31 @@ body {
 .tooltip {
   position: fixed;
   z-index: 25;
-  max-width: min(320px, calc(100vw - 2rem));
-  padding: 0.75rem 0.85rem;
-  border-radius: var(--radius);
+  max-width: min(280px, calc(100vw - 2rem));
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
   border: 1px solid var(--panel-border);
   background: rgba(12, 14, 22, 0.15);
   backdrop-filter: blur(12px);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
   pointer-events: none;
   transition: opacity 0.2s ease;
+}
+
+/* Il tooltip "Shares N tags" riusa .preview-panel__sharedTags (stesso
+   blocco del pannello anteprima): lì ha già margine/padding/bordo suoi,
+   che qui si sommerebbero al padding del tooltip stesso, rendendo il
+   riquadro più ingombrante del necessario per una singola riga di testo. */
+.tooltip .preview-panel__sharedTags {
+  margin: 0;
+  padding: 0.35rem 0.5rem;
+  border-left-width: 2px;
+  border-radius: 0 3px 3px 0;
+}
+
+.tooltip .preview-panel__sharedTagsLine {
+  font-size: 0.68rem;
+  line-height: 1.4;
 }
 
 .tooltip[hidden] {

@@ -1,13 +1,13 @@
 import { buildNetwork, filterNetworkByTag, legendTagsTopFromNodes } from "./graphData.js";
 import { loadProjectsRaw } from "./loadData.js";
-import { createGraphController } from "./graph.js?v=back-cta-always";
+import { createGraphController } from "./graph.js?v=ambient-lines-fade";
 import {
   setupFilters,
   setupTooltip,
   setupModal,
   setupLegend,
   renderProjectPreviewHtml,
-} from "./ui.js?v=back-cta-always";
+} from "./ui.js?v=ambient-lines-fade";
 import { initHeaderScroll } from "./headerScroll.js";
 
 initHeaderScroll();
@@ -139,6 +139,9 @@ async function main() {
   let lockedPreviewId = null;
   let hoverPreviewId = null;
   let hidePreviewTimer = null;
+  // Id del progetto da cui si è arrivati via "Mostra collegamenti" (lista):
+  // sulla sua anteprima mostriamo il link "Torna alla Project List".
+  let backToListNodeId = null;
 
   function cancelHidePreview() {
     if (hidePreviewTimer) {
@@ -232,9 +235,12 @@ async function main() {
       lockedPreviewId = nid;
     }
     hoverPreviewId = nid;
-    // "View in Project List" sempre presente sull'anteprima, non solo
-    // quando si arriva da lì tramite "View in Connections".
-    const backToListHref = nid != null ? `projects.html#proj-${encodeURIComponent(String(nid))}` : "";
+    // "Torna alla Project List" solo sull'anteprima (bloccata) del progetto da
+    // cui si è arrivati tramite "Mostra collegamenti".
+    const backToListHref =
+      backToListNodeId && nid === backToListNodeId && lockedPreviewId === backToListNodeId
+        ? `projects.html#proj-${encodeURIComponent(String(nid))}`
+        : "";
     previewInner.innerHTML = renderProjectPreviewHtml(node, { backToListHref });
     previewPane?.classList.add("top10-preview-pane--active");
   }
@@ -480,6 +486,9 @@ async function main() {
 
     const focusProject = () => {
       graph.resetView();
+      // Siamo arrivati qui da "Mostra collegamenti": ricordiamo il progetto per
+      // mostrare il link "Torna alla Project List" nella sua anteprima.
+      backToListNodeId = node.id;
       showPreview(node, { locked: true });
       const allowed = allowedIdsForSelection(node);
       graph.setSelection?.(allowed, node.id);
