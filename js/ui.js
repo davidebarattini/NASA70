@@ -366,7 +366,7 @@ export function renderProjectPreviewHtml(node, opts = {}) {
           }
           ${
             backToListHref
-              ? `<a class="preview-panel__cta preview-panel__cta--back mono" href="${escapeAttr(backToListHref)}">Back to Project List</a>`
+              ? `<a class="preview-panel__cta preview-panel__cta--back mono" href="${escapeAttr(backToListHref)}">View in Project List</a>`
               : ""
           }
         </div>

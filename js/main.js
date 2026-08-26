@@ -1,13 +1,13 @@
 import { buildNetwork, filterNetworkByTag, legendTagsTopFromNodes } from "./graphData.js";
 import { loadProjectsRaw } from "./loadData.js";
-import { createGraphController } from "./graph.js?v=settle-direct2";
+import { createGraphController } from "./graph.js?v=cta-labels";
 import {
   setupFilters,
   setupTooltip,
   setupModal,
   setupLegend,
   renderProjectPreviewHtml,
-} from "./ui.js?v=settle-direct2";
+} from "./ui.js?v=cta-labels";
 import { initHeaderScroll } from "./headerScroll.js";
 
 initHeaderScroll();

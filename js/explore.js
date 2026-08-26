@@ -1,6 +1,6 @@
 import { buildNetwork, getPreviewHref } from "./graphData.js";
 import { loadProjectsRaw } from "./loadData.js";
-import { formatDate, formatPublishDate } from "./ui.js?v=settle-direct2";
+import { formatDate, formatPublishDate } from "./ui.js?v=cta-labels";
 import { initHeaderScroll } from "./headerScroll.js";
 
 initHeaderScroll();
@@ -118,7 +118,7 @@ function renderExploreList(nodes, sortBy) {
                 : ""
             }
             <a class="explore-card__cta explore-card__cta--secondary" href="explore.html?focus=${escapeAttr(node.id)}">
-              <span class="explore-card__ctaLabel">Show Connections</span>
+              <span class="explore-card__ctaLabel">View in Connections</span>
               <span class="explore-card__ctaParticles" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
             </a>
           </div>
