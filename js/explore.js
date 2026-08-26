@@ -1,6 +1,6 @@
 import { buildNetwork, getPreviewHref } from "./graphData.js";
 import { loadProjectsRaw } from "./loadData.js";
-import { formatDate, formatPublishDate } from "./ui.js?v=cta-labels";
+import { formatDate, formatPublishDate } from "./ui.js?v=back-cta-always";
 import { initHeaderScroll } from "./headerScroll.js";
 
 initHeaderScroll();

@@ -110,6 +110,21 @@ export function createGraphController(options) {
   }
   let bottomBound = computeBottomBound();
 
+  // Su desktop la filter-bar (elenco tag) sta in alto a sinistra, proprio
+  // sopra la zona dove crescono i pianeti "spenti" da un filtro (griglia in
+  // basso a sinistra, vedi assignInactiveTargets): con molti progetti
+  // disattivati la griglia può salire abbastanza da toccare l'elenco tag.
+  // Bordo (in coordinate locali all'SVG) oltre il quale la griglia non
+  // dovrebbe salire — solo su desktop, su mobile la filter-bar sta in
+  // fondo e non è un ostacolo per questa griglia.
+  function computeInactiveTopBound() {
+    if (decorative || !filterBarEl) return -Infinity;
+    const r = filterBarEl.getBoundingClientRect();
+    if (!r || !Number.isFinite(r.bottom) || r.top > height / 2) return -Infinity;
+    const svgRect = svg.getBoundingClientRect();
+    return r.bottom - svgRect.top + 24;
+  }
+
   // Quando la filter-bar cambia altezza (es. wrap dei tag, solo mobile:
   // su desktop non ha più effetto, vedi sopra) aggiorniamo il limite
   // inferiore e diamo un piccolo restart alla simulazione così i nodi si
@@ -349,10 +364,13 @@ export function createGraphController(options) {
     const centerY = decorative
       ? height / 2
       : bottomBound / 2 + (activeTagFilter ? 0 : GRAPH_Y_OFFSET);
-    // Centro "filtro": punto verso cui convergono i progetti attivi. Lo
-    // bilanciamo verso destra del centro pure per allontanarli dal cluster
-    // degli inactive nell'angolo basso-sx.
-    const filterCenterX = centerX + width * 0.14;
+    // Centro "filtro": punto verso cui convergono i progetti attivi. Parte
+    // dal centro "piatto" del riquadro (non da centerX, che ha già il suo
+    // bias verso il pannello anteprima: sommarci sopra un altro
+    // sbilanciamento li spostava visibilmente troppo a destra) con solo un
+    // piccolo scarto per allontanarli dal cluster degli inactive
+    // nell'angolo basso-sx.
+    const filterCenterX = width / 2 + width * 0.06;
     const filterCenterY = centerY;
     return { centerX, centerY, filterCenterX, filterCenterY };
   }
@@ -529,9 +547,18 @@ export function createGraphController(options) {
       const list = nodes
         .filter((nd) => nd._inactive)
         .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+      // Se la griglia "a colonne fisse" (inactiveCols) salirebbe oltre il
+      // bordo dell'elenco tag, allarghiamo le colonne (più larga, meno
+      // alta) così resta sotto invece di arrivarci all'altezza.
+      const topBound = computeInactiveTopBound();
+      const availableHeight = inactiveOriginY - topBound;
+      const maxRows = Number.isFinite(availableHeight)
+        ? Math.max(1, Math.floor(availableHeight / inactiveSpread))
+        : Infinity;
+      const cols = Math.max(inactiveCols, Math.ceil(list.length / maxRows));
       list.forEach((nd, i) => {
-        nd._inactiveTargetX = inactiveOriginX + (i % inactiveCols) * inactiveSpread;
-        nd._inactiveTargetY = inactiveOriginY - Math.floor(i / inactiveCols) * inactiveSpread;
+        nd._inactiveTargetX = inactiveOriginX + (i % cols) * inactiveSpread;
+        nd._inactiveTargetY = inactiveOriginY - Math.floor(i / cols) * inactiveSpread;
       });
     }
 

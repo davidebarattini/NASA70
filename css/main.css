@@ -1696,11 +1696,8 @@ body.mode-connections .header-meta {
   font-size: 0.85rem;
   font-weight: 400;
   letter-spacing: 0.01em;
-  text-decoration: underline;
-  text-decoration-color: rgba(232, 234, 239, 0.72);
-  text-underline-offset: 0.32em;
-  text-decoration-thickness: 1px;
-  color: var(--text);
+  text-decoration: none;
+  color: rgba(232, 234, 239, 0.78);
 }
 
 .preview-panel__cta:hover {
@@ -1711,12 +1708,6 @@ body.mode-connections .header-meta {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  color: rgba(255, 255, 255, 0.98);
-  text-decoration: none;
-}
-
-.preview-panel__cta--primary:hover {
-  color: #fff;
 }
 
 .preview-panel__ctaLabel {
@@ -1737,8 +1728,11 @@ body.mode-connections .header-meta {
   transition: transform 0.25s ease;
 }
 
-.preview-panel__cta--primary:hover .preview-panel__ctaLabel::after,
-.preview-panel__cta--primary:focus-visible .preview-panel__ctaLabel::after {
+/* Sottolineatura animata generica (non solo su --primary): stessa logica
+   di .explore-card__cta nella Project List, così "Open Project" e "View
+   in Project List" si comportano allo stesso modo. */
+.preview-panel__cta:hover .preview-panel__ctaLabel::after,
+.preview-panel__cta:focus-visible .preview-panel__ctaLabel::after {
   transform: scaleX(1);
 }
 
@@ -1775,8 +1769,6 @@ body.mode-connections .header-meta {
    sotto "Open Project" con poco spazio. */
 .preview-panel__cta--back {
   margin-top: 0.6rem;
-  text-decoration-color: rgba(232, 234, 239, 0.45);
-  color: rgba(232, 234, 239, 0.78);
 }
 
 .preview-panel__tagBlock {
