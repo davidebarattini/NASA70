@@ -266,6 +266,18 @@ body {
   }
 }
 
+/* Icona lista accanto a "Project List" (stessa di "View in Project List"
+   nell'anteprima). Distanza dal testo come le particelle di "Connections";
+   alzata di poco per centrarla otticamente sulle maiuscole del testo
+   invece che sulla linea di base. */
+.site-nav__linkIcon {
+  flex: none;
+  width: 0.72rem;
+  height: 0.72rem;
+  margin-left: 0.2rem;
+  transform: translateY(-0.03rem);
+}
+
 .site-nav__link:hover {
   color: rgba(232, 234, 239, 0.88);
 }
@@ -785,6 +797,72 @@ body {
 
 .filter-pill:hover {
   color: rgba(232, 234, 239, 0.82);
+}
+
+/* "×" a destra del tag selezionato: cliccando il tag attivo lo si
+   deseleziona (torna la vista con tutti i progetti). */
+.filter-pill__clear {
+  margin-left: 0.15rem;
+  font-size: 1.25em;
+  line-height: 1;
+  color: rgba(232, 234, 239, 0.7);
+  transition: color var(--transition);
+}
+
+.filter-pill:hover .filter-pill__clear {
+  color: var(--text);
+}
+
+/* Numero di progetti con quel tag, accanto al nome (più tenue). */
+.filter-pill__count {
+  font-size: 0.85em;
+  color: rgba(232, 234, 239, 0.32);
+}
+
+/* Lista espansa ("+N more tags"): cresce fino allo spazio disponibile e
+   poi scorre, con "Show less" sempre visibile sotto. Mobile (fascia in
+   basso): altezza limitata per non coprire il grafo. */
+.filters__tags--scroll {
+  max-height: 30vh;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(232, 234, 239, 0.25) transparent;
+  padding-right: 0.4rem;
+}
+
+/* Bottone "+N more tags" / "Show less" sotto l'elenco dei tag. */
+.filters__more {
+  position: relative;
+  margin: 0;
+  padding: 0.28rem 0;
+  border: 0;
+  background: transparent;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  cursor: pointer;
+  justify-self: start;
+}
+
+.filters__more::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.25s ease;
+}
+
+.filters__more:hover::after,
+.filters__more:focus-visible::after {
+  transform: scaleX(1);
 }
 
 .filter-pill[aria-pressed="true"] {
@@ -1729,7 +1807,8 @@ body.mode-connections .header-meta {
   color: rgba(232, 234, 239, 0.88);
 }
 
-.preview-panel__cta--primary {
+.preview-panel__cta--primary,
+.preview-panel__cta--back {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -1782,6 +1861,28 @@ body.mode-connections .header-meta {
 .preview-panel__cta--primary:hover .preview-panel__ctaArrow {
   background: var(--nasa-red-hover);
   transform: translateX(2px);
+}
+
+/* Icona lista di "View in Project List": senza cerchio rosso, solo l'icona
+   nel colore del testo (anche in hover). */
+.preview-panel__cta--back .preview-panel__ctaArrow {
+  background: none;
+  color: currentColor;
+}
+
+.preview-panel__cta--back .preview-panel__ctaArrow svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+/* Icona lista più vicina al testo: niente cerchio, quindi basta poco gap. */
+.preview-panel__cta--back {
+  gap: 0.3rem;
+}
+
+.preview-panel__cta--back .preview-panel__ctaArrow {
+  width: auto;
+  height: auto;
 }
 
 .preview-panel__actions {
@@ -1900,11 +2001,16 @@ body.mode-connections .header-meta {
     bottom: auto;
     display: flex;
     flex-direction: column;
+    /* nowrap: se la lista è lunga ("+N more tags") deve restringersi e
+       scorrere lei, non mandare "Show less" in una seconda colonna. */
+    flex-wrap: nowrap;
     align-items: flex-start;
     row-gap: 0.65rem;
-    width: min(16rem, calc(100% - 2rem));
+    /* Larga quanto il contenuto (titolo su due righe / tag più lungo), così
+       la barra di scorrimento della lista resta vicina ai tag. */
+    width: max-content;
+    max-width: min(16rem, calc(100% - 2rem));
     max-height: min(65vh, calc(100% - 12rem));
-    max-width: none;
     padding: 0;
   }
 
@@ -1919,12 +2025,38 @@ body.mode-connections .header-meta {
     color: rgba(232, 234, 239, 0.68);
   }
 
-  /* Elenco tag in singola colonna (uno per riga), non più a capo su più
-     colonne: "All Tags" e ogni tag della lista occupano ciascuno una riga. */
+  /* Desktop: la colonna filtri ha già un max-height; la lista espansa si
+     restringe dentro di essa (flex) e scorre, il resto resta fisso. */
+  .page-top10 .filters__tags--scroll {
+    max-height: none;
+    flex: 0 1 auto;
+    width: 100%;
+  }
+
+  /* Titolo e "Show less" restano fissi sopra/sotto la lista che scorre. */
+  .page-top10 .filters__heading,
+  .page-top10 .filters__more {
+    flex: none;
+  }
+
+  .page-top10 .filters {
+    overflow: hidden;
+  }
+
+  /* Elenco tag in singola colonna (uno per riga). nowrap: con "+N more
+     tags" la lista deve scorrere in giù, non andare a capo in una seconda
+     colonna di lato. */
   .page-top10 .filters__tags {
     flex-direction: column;
+    flex-wrap: nowrap;
     align-items: flex-start;
     gap: 0.45rem;
+    /* Si restringe nella colonna filtri e scorre (anche da chiusa, su
+       schermi bassi); spazio sotto per la sottolineatura dell'ultimo tag. */
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: 0.3rem;
   }
 }
 
@@ -2592,20 +2724,21 @@ body.mode-connections .home-hero {
   min-width: 0;
   padding-bottom: 1.35rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  transition: border-color var(--transition), background var(--transition);
+  transition: border-color var(--transition), background var(--transition), opacity 0.35s ease;
 }
 
 @media (hover: hover) {
   .explore-card:hover {
-    border-bottom-color: rgba(255, 255, 255, 0.24);
+    border-bottom-color: rgba(255, 255, 255, 0.5);
   }
 
   .explore-card:hover .explore-card__title {
     color: #fff;
   }
 
+  /* Hover più evidente: cornice dell'immagine bianca quasi piena. */
   .explore-card:hover .explore-card__heroWrap {
-    border-color: rgba(255, 255, 255, 0.32);
+    border-color: rgba(255, 255, 255, 0.8);
   }
 
   .explore-card:hover .explore-card__hero {
@@ -2613,19 +2746,27 @@ body.mode-connections .home-hero {
   }
 }
 
-/* Evidenziazione temporanea quando si torna alla lista da "Torna alla
-   Project List". */
-.explore-card--focused {
-  animation: exploreCardFocusFlash 1.6s ease;
+/* Arrivo da "View in Project List" (Connections): le altre card si
+   attenuano molto e non reagiscono all'hover (pointer-events: none), quella
+   selezionata ha cornice bianca. Si esce solo con un click fuori dalla card
+   selezionata (anche sopra una card attenuata) o con Esc: il primo click
+   chiude la modalità e basta, senza aprire link (vedi explore.js). */
+.explore-list--focusing .explore-card:not(.explore-card--selected) {
+  opacity: 0.15;
+  pointer-events: none;
 }
 
-@keyframes exploreCardFocusFlash {
-  0% {
-    background: rgba(255, 255, 255, 0.12);
-  }
-  100% {
-    background: transparent;
-  }
+.explore-card--selected {
+  border-bottom-color: rgba(255, 255, 255, 0.85);
+}
+
+.explore-card.explore-card--selected .explore-card__heroWrap {
+  border-color: #fff;
+  box-shadow: 0 0 0 1px #fff;
+}
+
+.explore-card--selected .explore-card__title {
+  color: #fff;
 }
 
 .explore-card__heroWrap {

@@ -40,57 +40,134 @@ export function formatPublishDate(data) {
 export function setupFilters(container, topTags, onSelect) {
   if (!container) return { setActive() {}, updateTags() {} };
 
+  // Di default solo i tag più usati; "+N more tags" espande la lista a
+  // tutti i tag dei progetti visibili (ordinati per frequenza).
+  const COLLAPSED_COUNT = LEGEND_TAG_TOP_COUNT;
+  let expanded = false;
+  let currentTags = [];
+  let currentActive = null;
+
+  // Lista espansa: accorcia l'altezza visibile così che l'ultimo tag in
+  // vista resti tagliato a metà, segnale che la lista continua e si può
+  // scorrere. Parte dall'altezza che il CSS concede (colonna filtri su
+  // desktop, 30vh su mobile) e la arrotonda a "N righe intere + mezza".
+  function fitHalfRow(list) {
+    if (!list || !list.isConnected) return;
+    list.style.maxHeight = "";
+    const pill = list.querySelector(".filter-pill");
+    if (!pill || list.scrollHeight <= list.clientHeight + 1) return;
+    const cs = getComputedStyle(list);
+    const rowGap = parseFloat(cs.rowGap) || 0;
+    const padBottom = parseFloat(cs.paddingBottom) || 0;
+    const pillH = pill.offsetHeight;
+    const pitch = pillH + rowGap;
+    const available = list.clientHeight;
+    // Quota visibile dell'ultimo tag (0.5 = metà; un po' di più così si
+    // legge ancora ma si capisce che è tagliato).
+    const peek = pillH * 0.68;
+    const rows = Math.max(1, Math.floor((available - peek) / pitch));
+    const visible = rows * pitch + peek;
+    list.style.maxHeight = `${Math.max(pillH, visible - padBottom)}px`;
+  }
+
+  let resizeRaf = 0;
+  window.addEventListener("resize", () => {
+    cancelAnimationFrame(resizeRaf);
+    resizeRaf = requestAnimationFrame(() =>
+      fitHalfRow(container.querySelector(".filters__tags--scroll")),
+    );
+  });
+
   function renderPills(tags) {
+    currentTags = (tags || []).filter((t) => String(t.tag ?? "").trim());
     container.innerHTML = "";
+
+    const total = currentTags.length;
+    const canExpand = total > COLLAPSED_COUNT;
+    const showAll = expanded || !canExpand;
+    // Il tag attivo resta sempre visibile anche a lista chiusa.
+    let visible = showAll ? currentTags : currentTags.slice(0, COLLAPSED_COUNT);
+    if (!showAll && currentActive && !visible.some((t) => t.tag === currentActive)) {
+      const active = currentTags.find((t) => t.tag === currentActive);
+      if (active) visible = [...visible, active];
+    }
 
     const heading = document.createElement("p");
     heading.className = "filters__heading mono";
-    heading.textContent = "Top 10 tags most used by the projects in the selected tag";
+    // Testo fisso (uguale da lista chiusa o aperta), col totale dei tag.
+    // A capo dopo "used" (vedi anche la larghezza della colonna in main.css).
+    heading.innerHTML = `Select one of the ${total} tags used<br>across the projects`;
     container.appendChild(heading);
 
     const tagCluster = document.createElement("div");
     tagCluster.className = "filters__tags";
     container.appendChild(tagCluster);
 
-    const allBtn = document.createElement("button");
-    allBtn.type = "button";
-    allBtn.className = "filter-pill";
-    allBtn.innerHTML = `<span class="filter-pill__label">All tags</span>`;
-    allBtn.setAttribute("data-tag", "");
-    tagCluster.appendChild(allBtn);
-
-    for (const t of tags || []) {
-      const tag = String(t.tag ?? "").trim();
-      if (!tag) continue;
+    for (const t of visible) {
+      const tag = String(t.tag).trim();
       const b = document.createElement("button");
       b.type = "button";
       b.className = "filter-pill filter-pill--tag";
       const color = t.color || "rgba(232,234,239,0.65)";
       b.style.setProperty("--pill-color", color);
-      b.title = tag;
-      b.innerHTML = `<span class="filter-pill__label mono">${escapeHtml(tag)}</span>`;
+      b.title = t.count ? `${tag} (${t.count} projects)` : tag;
+      b.innerHTML =
+        `<span class="filter-pill__label mono">${escapeHtml(tag)}</span>` +
+        (t.count ? `<span class="filter-pill__count mono">${t.count}</span>` : "");
       b.setAttribute("data-tag", tag);
       tagCluster.appendChild(b);
     }
+
+    // Lista espansa: cresce fino allo spazio disponibile e poi scorre (CSS).
+    if (showAll && canExpand) {
+      tagCluster.classList.add("filters__tags--scroll");
+      requestAnimationFrame(() => fitHalfRow(tagCluster));
+    }
+
+    if (canExpand) {
+      const moreBtn = document.createElement("button");
+      moreBtn.type = "button";
+      moreBtn.className = "filters__more mono";
+      moreBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
+      moreBtn.textContent = expanded ? "Show less" : `+${total - COLLAPSED_COUNT} more tags`;
+      container.appendChild(moreBtn);
+    }
   }
 
+  // Niente più "All tags": il tag selezionato mostra una "×" a destra e,
+  // cliccandolo di nuovo, si deseleziona.
   function setActive(tag) {
+    currentActive = tag ?? null;
     const buttons = container.querySelectorAll(".filter-pill");
     buttons.forEach((btn) => {
-      const raw = btn.getAttribute("data-tag");
-      const id = raw === null || raw === "" ? null : raw;
-      const active = tag == null ? id == null : id === tag;
+      const active = tag != null && btn.getAttribute("data-tag") === tag;
       btn.setAttribute("aria-pressed", active ? "true" : "false");
+      btn.querySelector(".filter-pill__clear")?.remove();
+      if (active) {
+        btn.insertAdjacentHTML("beforeend", '<span class="filter-pill__clear" aria-hidden="true">×</span>');
+        btn.setAttribute("aria-label", `${tag}: remove filter`);
+      } else {
+        btn.removeAttribute("aria-label");
+      }
     });
   }
 
   if (!container.dataset.filtersBound) {
     container.dataset.filtersBound = "1";
     container.addEventListener("click", (e) => {
+      const more = e.target.closest(".filters__more");
+      if (more && container.contains(more)) {
+        expanded = !expanded;
+        renderPills(currentTags);
+        setActive(currentActive);
+        container.querySelector(".filters__more")?.focus();
+        return;
+      }
       const btn = e.target.closest(".filter-pill");
       if (!btn || !container.contains(btn)) return;
-      const raw = btn.getAttribute("data-tag");
-      const selected = raw === null || raw === "" ? null : raw;
+      const raw = btn.getAttribute("data-tag") || null;
+      // Click sul tag già attivo (o sulla sua "×") = deseleziona.
+      const selected = raw && raw !== currentActive ? raw : null;
       setActive(selected);
       onSelect(selected);
     });
@@ -102,6 +179,7 @@ export function setupFilters(container, topTags, onSelect) {
   return {
     setActive,
     updateTags(tags, activeTag = null) {
+      currentActive = activeTag ?? null;
       renderPills(tags);
       setActive(activeTag);
     },
@@ -366,7 +444,11 @@ export function renderProjectPreviewHtml(node, opts = {}) {
           }
           ${
             backToListHref
-              ? `<a class="preview-panel__cta preview-panel__cta--back mono" href="${escapeAttr(backToListHref)}"><span class="preview-panel__ctaLabel">View in Project List</span></a>`
+              ? `<a class="preview-panel__cta preview-panel__cta--back mono" href="${escapeAttr(backToListHref)}"><span class="preview-panel__ctaLabel">View in Project List</span>
+                  <span class="preview-panel__ctaArrow" aria-hidden="true">
+                    <svg viewBox="2.5 2.5 19 19" fill="none" focusable="false"><path d="M9 6h11M9 12h11M9 18h11" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M4 6h.01M4 12h.01M4 18h.01" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/></svg>
+                  </span>
+                </a>`
               : ""
           }
         </div>

@@ -260,23 +260,48 @@ function setupSortFilter({
   applySort();
 }
 
-// Quando si torna alla Project List da "Torna alla Project List" (anteprima
-// EXPLORE), l'URL contiene #proj-<id>: scorri fino a quel progetto e
-// evidenzialo brevemente.
-function scrollToFocusedProject() {
+// Quando si arriva alla Project List da "View in Project List" (anteprima in
+// Connections), l'URL contiene #proj-<id>: scorriamo fino a quel progetto e
+// lo mettiamo in evidenza in modo persistente (cornice bianca),
+// attenuando tutte le altre card (che non reagiscono all'hover, vedi CSS).
+// L'evidenza resta finché non si clicca fuori dalla card, si preme Esc o si
+// cambia ricerca/ordinamento.
+function scrollToFocusedProject(listEl) {
   const hash = location.hash;
   if (!hash || !hash.startsWith("#proj-")) return;
   let target = null;
   try {
-    target = document.getElementById(hash.slice(1));
+    target = document.getElementById(decodeURIComponent(hash.slice(1)));
   } catch {
     target = null;
   }
   if (!target) return;
+
+  target.classList.add("explore-card--selected");
+  listEl?.classList.add("explore-list--focusing");
+
+  function clear() {
+    target.classList.remove("explore-card--selected");
+    listEl?.classList.remove("explore-list--focusing");
+    document.removeEventListener("pointerdown", onPointerDown, true);
+    document.removeEventListener("keydown", onKey, true);
+    document.removeEventListener("input", clear, true);
+    // Toglie #proj-<id> dall'URL: un refresh non ripropone l'evidenza.
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+  function onPointerDown(e) {
+    if (!target.contains(e.target)) clear();
+  }
+  function onKey(e) {
+    if (e.key === "Escape") clear();
+  }
+  document.addEventListener("pointerdown", onPointerDown, true);
+  document.addEventListener("keydown", onKey, true);
+  // Ricerca/ordinamento rigenerano la lista: via l'evidenza.
+  document.addEventListener("input", clear, true);
+
   requestAnimationFrame(() => {
     target.scrollIntoView({ behavior: "smooth", block: "center" });
-    target.classList.add("explore-card--focused");
-    setTimeout(() => target.classList.remove("explore-card--focused"), 1600);
   });
 }
 
@@ -310,7 +335,7 @@ async function main() {
       searchInputEl,
       allNodes: model.nodes,
     });
-    scrollToFocusedProject();
+    scrollToFocusedProject(listEl);
     if (statusEl) statusEl.hidden = true;
   } catch (err) {
     console.error(err);

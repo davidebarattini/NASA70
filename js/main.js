@@ -139,9 +139,6 @@ async function main() {
   let lockedPreviewId = null;
   let hoverPreviewId = null;
   let hidePreviewTimer = null;
-  // Id del progetto da cui si è arrivati via "Mostra collegamenti" (lista):
-  // sulla sua anteprima mostriamo il link "Torna alla Project List".
-  let backToListNodeId = null;
 
   function cancelHidePreview() {
     if (hidePreviewTimer) {
@@ -235,12 +232,11 @@ async function main() {
       lockedPreviewId = nid;
     }
     hoverPreviewId = nid;
-    // "Torna alla Project List" solo sull'anteprima (bloccata) del progetto da
-    // cui si è arrivati tramite "Mostra collegamenti".
-    const backToListHref =
-      backToListNodeId && nid === backToListNodeId && lockedPreviewId === backToListNodeId
-        ? `projects.html#proj-${encodeURIComponent(String(nid))}`
-        : "";
+    // "View in Project List" sull'anteprima di qualsiasi progetto, sia in
+    // hover sia selezionato (click nel grafo o arrivo da "Show Connections").
+    const backToListHref = nid
+      ? `projects.html#proj-${encodeURIComponent(String(nid))}`
+      : "";
     previewInner.innerHTML = renderProjectPreviewHtml(node, { backToListHref });
     previewPane?.classList.add("top10-preview-pane--active");
   }
@@ -448,25 +444,29 @@ async function main() {
     setupLegend(legendEl, view.legend);
   }
 
-  function nodesForTag(tag) {
-    if (!tag) return fullModel.nodes;
-    const tagNorm = String(tag).trim();
-    return fullModel.nodes.filter((n) => (n.tagsNorm || []).includes(tagNorm));
-  }
-
-  function tagsForFilterBar(activeTag) {
-    return legendTagsTopFromNodes(nodesForTag(activeTag));
+  // Elenco FISSO di tutti i tag dell'archivio, ordinati per numero di
+  // progetti (il numero accanto = pianeti che si accendono cliccandolo).
+  // Non cambia quando si seleziona un tag: la barra ne mostra i primi 10 e
+  // il resto dietro "+N more tags" (vedi setupFilters in ui.js).
+  function tagsForFilterBar() {
+    return legendTagsTopFromNodes(fullModel.nodes, Infinity);
   }
 
   let filtersUi;
   function onFilterSelect(tag) {
     graph.setFilter(tag);
     syncLegendForFilter(tag || null);
-    filtersUi.updateTags(tagsForFilterBar(tag), tag);
+    filtersUi.setActive(tag);
+    // Cambiando tag il progetto selezionato viene deselezionato: chiudiamo
+    // anche l'anteprima a destra. Azzerando l'hover prima di unlockPreview,
+    // questa non rimostra l'ultimo progetto visto (che era proprio quello
+    // selezionato) ma il pannello vuoto.
+    cancelHidePreview();
+    hoverPreviewId = null;
     unlockPreview();
   }
 
-  filtersUi = setupFilters(filterBar, tagsForFilterBar(null), onFilterSelect);
+  filtersUi = setupFilters(filterBar, tagsForFilterBar(), onFilterSelect);
 
   function focusProjectFromUrl() {
     const focusId = new URLSearchParams(location.search).get("focus");
@@ -479,16 +479,13 @@ async function main() {
         fullModel = allNodesModel;
         graph.setNetworkModel(allNodesModel);
         syncLegendForFilter(null);
-        filtersUi.updateTags(tagsForFilterBar(null), null);
+        filtersUi.updateTags(tagsForFilterBar(), null);
       }
     }
     if (!node) return;
 
     const focusProject = () => {
       graph.resetView();
-      // Siamo arrivati qui da "Mostra collegamenti": ricordiamo il progetto per
-      // mostrare il link "Torna alla Project List" nella sua anteprima.
-      backToListNodeId = node.id;
       showPreview(node, { locked: true });
       const allowed = allowedIdsForSelection(node);
       graph.setSelection?.(allowed, node.id);

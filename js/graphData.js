@@ -590,8 +590,9 @@ export function legendTagsTopFromNodes(nodes, limit = LEGEND_TAG_TOP_COUNT) {
     .filter(([, c]) => c > 0)
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, limit)
-    .map(([tag]) => ({
+    .map(([tag, count]) => ({
       tag,
+      count,
       color: isMacroLiteralTag(tag)
         ? MACRO_BY_ID[tag]?.color || colorForTag(tag)
         : colorForTag(tag),
